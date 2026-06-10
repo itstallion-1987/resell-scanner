@@ -3,7 +3,8 @@ import Foundation
 /// Единая точка для всех внешних значений — перед сабмитом заменить плейсхолдеры
 /// и прогнать: grep -r "YOUR-SUBDOMAIN\|REPLACE_\|YOUR-DOMAIN" ios/
 enum AppConfig {
-    static let workerBaseURL = URL(string: "https://resell-scanner-proxy.YOUR-SUBDOMAIN.workers.dev")!
+    static let workerBaseURL = URL(string: "https://resell-scanner-proxy.sane4ek07.workers.dev")!
+    // Значение в secrets.local.txt (не в репозитории) — вставить перед сборкой релиза
     static let appToken = "REPLACE_APP_SHARED_SECRET"
 
     static let privacyPolicyURL = URL(string: "https://resell-scanner.YOUR-DOMAIN/privacy.html")!

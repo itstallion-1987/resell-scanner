@@ -13,6 +13,9 @@ proxy/test/results.json
 xcuserdata/
 DerivedData/
 
+# Секреты — никогда не коммитить (репозиторий публичный)
+secrets.local.txt
+
 # OS
 .DS_Store
 Thumbs.db

@@ -6,13 +6,15 @@ compatibility_flags = ["nodejs_compat"]
 # KV: счётчики лимитов устройств + кэш статуса подписки
 [[kv_namespaces]]
 binding = "LIMITS"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "2a10ba3f5bfc4b308235b4a24f2fe799"
 
 # Workers Analytics Engine: метрики качества и воронки (бесплатно, без сторонних SDK).
 # Запрос данных — через GraphQL Analytics API аккаунта Cloudflare.
-[[analytics_engine_datasets]]
-binding = "ANALYTICS"
-dataset = "resell_scanner_events"
+# ВРЕМЕННО отключено: сначала включить в дашборде (Workers & Pages -> Analytics Engine),
+# затем раскомментировать и передеплоить. Код работает и без биндинга (env.ANALYTICS?).
+# [[analytics_engine_datasets]]
+# binding = "ANALYTICS"
+# dataset = "resell_scanner_events"
 
 [vars]
 # claude-sonnet-4-6 укладывается в критерий себестоимости <= $0.04 за объявление
