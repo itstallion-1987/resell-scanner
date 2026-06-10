@@ -39,11 +39,24 @@ struct ResultView: View {
                 notRecognizedBody
             }
         }
-        .navigationTitle(draft.recognized ? "Listing draft" : "Try again")
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(Brand.forest, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                HStack(spacing: 8) {
+                    BrandMark(size: 18)
+                    Text(draft.recognized ? "Listing draft" : "Try again")
+                        .font(.headline)
+                        .fontDesign(.rounded)
+                        .foregroundStyle(.white)
+                }
+            }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Done") { dismiss() }
+                    .tint(Brand.mint)
             }
         }
         .sheet(isPresented: $showPaywall) { PaywallView() }
@@ -58,57 +71,31 @@ struct ResultView: View {
     // MARK: - Recognized
 
     private var listingBody: some View {
-        List {
-            Section {
-                // Переключение платформы — фича Pro; переформатирование локальное, без нового vision-вызова
-                Picker("Platform", selection: platformBinding) {
-                    ForEach(Platform.allCases) { p in
-                        Text(p.displayName).tag(p)
-                    }
-                }
-                .pickerStyle(.menu)
-            }
-
-            copyRow(label: "Title (\(formatted.title.count)/\(platform.titleLimit))", value: formatted.title)
-            copyRow(label: "Description", value: formatted.description, lineLimit: 12)
-
-            Section("Details") {
-                if let brand = draft.brand { copyRow(label: "Brand", value: brand) }
-                if let model = draft.model { copyRow(label: "Model", value: model) }
-                copyRow(label: "Category", value: draft.category)
-                if let size = draft.size { copyRow(label: "Size", value: size) }
-                if let materials = draft.materials { copyRow(label: "Materials", value: materials) }
-                copyRow(label: "Condition", value: "\(draft.conditionLabel). \(draft.conditionDetails)")
+        ScrollView {
+            VStack(spacing: 12) {
+                headerCard
+                priceCard
+                copyCard(label: "Title (\(formatted.title.count)/\(platform.titleLimit))", value: formatted.title)
+                copyCard(label: "Description", value: formatted.description, lineLimit: 14)
+                detailsCard
                 if !draft.keywords.isEmpty {
-                    copyRow(label: "Keywords", value: draft.keywords.joined(separator: ", "))
+                    copyCard(label: "Keywords", value: draft.keywords.joined(separator: ", "))
                 }
-            }
-
-            Section("Price") {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(draft.priceRangeText).font(.title3.bold())
-                    Text(draft.priceRange.note)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                if draft.confidence == "low", let hint = draft.retryHint {
+                    hintBanner(hint)
                 }
-                copyRow(label: "Check sold comps", value: draft.soldCompsQuery)
-            }
-
-            if draft.confidence == "low", let hint = draft.retryHint {
-                Section {
-                    Label(hint, systemImage: "exclamationmark.triangle")
-                        .font(.subheadline)
-                        .foregroundStyle(.orange)
-                }
-            }
-
-            Section {
-                // Юридическая гигиена: описание по фото, без вердиктов подлинности
                 Text("Description is based on photos only. Verify authenticity of branded items separately before listing.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(.caption2)
+                    .foregroundStyle(Brand.inkMuted)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 4)
             }
+            .padding(.horizontal, 14)
+            .padding(.top, 14)
+            .padding(.bottom, 8)
         }
+        .background(Brand.paper.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) {
             Button {
                 copyAll()
@@ -117,16 +104,167 @@ struct ResultView: View {
                     copiedField == "ALL" ? "Copied!" : "Copy all",
                     systemImage: copiedField == "ALL" ? "checkmark" : "doc.on.doc.fill"
                 )
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(.tint, in: RoundedRectangle(cornerRadius: 14))
-                .foregroundStyle(.white)
             }
-            .padding(.horizontal)
-            .padding(.bottom, 8)
-            .background(.bar)
+            .buttonStyle(BrandPrimaryButtonStyle())
+            .padding(.horizontal, 14)
+            .padding(.top, 8)
+            .padding(.bottom, 6)
+            .background(Brand.paper.opacity(0.96))
         }
+    }
+
+    private var headerCard: some View {
+        HStack(alignment: .center, spacing: 10) {
+            if let photo = photos.first {
+                Image(uiImage: photo)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 52, height: 52)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                FieldLabel(text: "Platform")
+                // Переключение платформы — фича Pro; переформатирование локальное
+                Picker("Platform", selection: platformBinding) {
+                    ForEach(Platform.allCases) { p in
+                        Text(p.displayName).tag(p)
+                    }
+                }
+                .pickerStyle(.menu)
+                .tint(Brand.emerald)
+                .labelsHidden()
+            }
+            Spacer()
+            Text(draft.conditionLabel)
+                .font(.caption.weight(.semibold))
+                .fontDesign(.rounded)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Brand.emerald.opacity(0.12), in: Capsule())
+                .foregroundStyle(Brand.emerald)
+        }
+        .paperCard()
+    }
+
+    private var priceCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 3) {
+                    FieldLabel(text: "Price estimate")
+                    Text(draft.priceRangeText)
+                        .font(.system(.title, design: .rounded).weight(.bold))
+                        .foregroundStyle(Brand.ink)
+                }
+                Spacer()
+                Image(systemName: "tag.fill")
+                    .font(.title3)
+                    .foregroundStyle(Brand.amber)
+                    .rotationEffect(.degrees(-15))
+            }
+            Text(draft.priceRange.note)
+                .font(.caption)
+                .foregroundStyle(Brand.inkMuted)
+            if !draft.soldCompsQuery.isEmpty {
+                Divider().overlay(Brand.lineOnPaper)
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        FieldLabel(text: "Check sold comps")
+                        Text(draft.soldCompsQuery)
+                            .font(.footnote)
+                            .foregroundStyle(Brand.ink)
+                            .lineLimit(2)
+                    }
+                    Spacer()
+                    copyButton(label: "Sold comps", value: draft.soldCompsQuery)
+                }
+            }
+        }
+        .padding(14)
+        .background(Brand.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(alignment: .leading) {
+            UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 16)
+                .fill(Brand.amber)
+                .frame(width: 4)
+        }
+        .shadow(color: Brand.ink.opacity(0.05), radius: 10, y: 3)
+    }
+
+    private var detailsCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 0) {
+                if let brand = draft.brand {
+                    BrandChipLabel(title: "Brand", value: brand)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if let size = draft.size {
+                    BrandChipLabel(title: "Size", value: size)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                BrandChipLabel(title: "Category", value: draft.category)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            if let materials = draft.materials {
+                BrandChipLabel(title: "Materials", value: materials)
+            }
+            Divider().overlay(Brand.lineOnPaper)
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 3) {
+                    FieldLabel(text: "Condition")
+                    Text("\(draft.conditionLabel). \(draft.conditionDetails)")
+                        .font(.footnote)
+                        .foregroundStyle(Brand.ink)
+                }
+                Spacer()
+                copyButton(label: "Condition", value: "\(draft.conditionLabel). \(draft.conditionDetails)")
+            }
+        }
+        .paperCard()
+    }
+
+    private func copyCard(label: String, value: String, lineLimit: Int = 6) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                FieldLabel(text: label)
+                Text(value)
+                    .font(.subheadline)
+                    .foregroundStyle(Brand.ink)
+                    .lineLimit(lineLimit)
+                    .textSelection(.enabled)
+            }
+            Spacer(minLength: 0)
+            copyButton(label: label, value: value)
+        }
+        .paperCard()
+    }
+
+    private func copyButton(label: String, value: String) -> some View {
+        Button {
+            UIPasteboard.general.string = value
+            onCopied(field: label, event: "copy_field")
+        } label: {
+            Image(systemName: copiedField == label ? "checkmark" : "doc.on.doc")
+                .font(.subheadline.weight(.semibold))
+                .frame(width: 34, height: 34)
+                .background(
+                    (copiedField == label ? Color.green : Brand.emerald).opacity(0.12),
+                    in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                )
+                .foregroundStyle(copiedField == label ? .green : Brand.emerald)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func hintBanner(_ hint: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(Brand.amber)
+            Text(hint)
+                .font(.footnote)
+                .foregroundStyle(Brand.ink)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Brand.amber.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private var platformBinding: Binding<Platform> {
@@ -141,29 +279,6 @@ struct ResultView: View {
                 }
             }
         )
-    }
-
-    private func copyRow(label: String, value: String, lineLimit: Int = 4) -> some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(label)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(value)
-                    .font(.body)
-                    .lineLimit(lineLimit)
-                    .textSelection(.enabled)
-            }
-            Spacer()
-            Button {
-                UIPasteboard.general.string = value
-                onCopied(field: label, event: "copy_field")
-            } label: {
-                Image(systemName: copiedField == label ? "checkmark" : "doc.on.doc")
-                    .foregroundStyle(copiedField == label ? .green : .accentColor)
-            }
-            .buttonStyle(.borderless)
-        }
     }
 
     private func copyAll() {
@@ -201,27 +316,32 @@ struct ResultView: View {
     // MARK: - Not recognized
 
     private var notRecognizedBody: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "viewfinder.trianglebadge.exclamationmark")
-                .font(.system(size: 56))
-                .foregroundStyle(.orange)
+        VStack(spacing: 22) {
+            Spacer()
+            ZStack {
+                ViewfinderBrackets()
+                    .stroke(Brand.amber, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                    .frame(width: 84, height: 84)
+                Image(systemName: "questionmark")
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                    .foregroundStyle(Brand.amber)
+            }
             Text("Couldn't read the item")
-                .font(.title2.bold())
+                .font(.system(.title2, design: .rounded).weight(.bold))
+                .foregroundStyle(Brand.ink)
             Text(draft.retryHint ?? "Retake the photos in better light and include the brand/size tag.")
                 .font(.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Brand.inkMuted)
                 .multilineTextAlignment(.center)
+            Spacer()
             Button {
                 dismiss() // фото сохранены в ScanView — добавит бирку и повторит
             } label: {
                 Text(draft.retryHint != nil ? "Add the photo & retry" : "Retake photos")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(.tint, in: RoundedRectangle(cornerRadius: 14))
-                    .foregroundStyle(.white)
             }
+            .buttonStyle(BrandPrimaryButtonStyle())
         }
-        .padding(32)
+        .padding(28)
+        .background(Brand.paper.ignoresSafeArea())
     }
 }

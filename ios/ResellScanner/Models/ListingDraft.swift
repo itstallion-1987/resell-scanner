@@ -51,9 +51,17 @@ struct ListingDraft: Codable, Equatable {
     }
 }
 
-struct GenerateResponse: Codable {
+struct GenerateResponse: Codable, Identifiable {
+    // Уникальность каждого ответа: id не из контента (у двух подряд нераспознанных
+    // ответов title/sold_comps пустые — контентный id совпадал бы, и
+    // fullScreenCover(item:) не показал бы второй результат)
+    let id = UUID()
     var draft: ListingDraft
     var meta: Meta
+
+    enum CodingKeys: String, CodingKey {
+        case draft, meta
+    }
 
     struct Meta: Codable {
         var isPro: Bool

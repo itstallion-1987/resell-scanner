@@ -65,12 +65,17 @@ struct SettingsView: View {
                     Button {
                         UIPasteboard.general.string = DeviceID.current
                         copiedDeviceID = true
+                        Task {
+                            try? await Task.sleep(for: .seconds(1.5))
+                            copiedDeviceID = false
+                        }
                     } label: {
                         HStack {
                             Text("Device ID")
+                                .foregroundStyle(Brand.ink)
                             Spacer()
                             Text(copiedDeviceID ? "Copied!" : String(DeviceID.current.prefix(8)) + "…")
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(copiedDeviceID ? Brand.emerald : .secondary)
                                 .font(.callout.monospaced())
                         }
                     }
@@ -78,7 +83,10 @@ struct SettingsView: View {
                     Text("Anonymous ID used only to enforce free-tier limits. Tap to copy if you request data deletion.")
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Brand.paper.ignoresSafeArea())
             .navigationTitle("Settings")
         }
+        .tint(Brand.emerald)
     }
 }

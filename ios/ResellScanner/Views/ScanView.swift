@@ -23,17 +23,43 @@ struct ScanView: View {
     var body: some View {
         NavigationStack {
             ZStack {
+                Color(hex: 0x10201C).ignoresSafeArea()
                 if camera.isAuthorized {
                     CameraPreview(session: camera.session)
                         .ignoresSafeArea()
                 } else {
-                    ContentUnavailableView(
-                        "Camera unavailable",
-                        systemImage: "camera.fill",
-                        description: Text("Enable camera access in Settings, or pick photos from your library below.")
-                    )
+                    VStack(spacing: 16) {
+                        ZStack {
+                            ViewfinderBrackets()
+                                .stroke(Brand.mint.opacity(0.5), style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                                .frame(width: 72, height: 72)
+                            Image(systemName: "camera.fill")
+                                .font(.title2)
+                                .foregroundStyle(Brand.mint.opacity(0.6))
+                        }
+                        Text("Camera unavailable")
+                            .font(.headline)
+                            .fontDesign(.rounded)
+                            .foregroundStyle(.white)
+                        Text("Enable camera access in Settings, or pick photos from your library below.")
+                            .font(.footnote)
+                            .foregroundStyle(.white.opacity(0.6))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+                    }
                 }
-                VStack {
+
+                // Фирменные уголки видоискателя поверх превью
+                if camera.isAuthorized {
+                    ViewfinderBrackets(cornerLength: 0.12)
+                        .stroke(Brand.mint.opacity(0.85), style: StrokeStyle(lineWidth: 3.5, lineCap: .round))
+                        .padding(.horizontal, 34)
+                        .padding(.top, 130)
+                        .padding(.bottom, 210)
+                        .allowsHitTesting(false)
+                }
+
+                VStack(spacing: 8) {
                     if !purchases.isPro, let remaining = appState.remainingFree, remaining >= 0 {
                         freeBadge("\(remaining) of 5 free left")
                     }
@@ -79,15 +105,19 @@ struct ScanView: View {
     }
 
     private var controls: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
             if !photos.isEmpty {
                 HStack(spacing: 8) {
                     ForEach(Array(photos.enumerated()), id: \.offset) { index, photo in
                         Image(uiImage: photo)
                             .resizable()
                             .scaledToFill()
-                            .frame(width: 56, height: 56)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .frame(width: 54, height: 54)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .strokeBorder(Brand.mint, lineWidth: 1.5)
+                            )
                             .overlay(alignment: .topTrailing) {
                                 Button {
                                     photos.remove(at: index)
@@ -95,26 +125,28 @@ struct ScanView: View {
                                     Image(systemName: "xmark.circle.fill")
                                         .foregroundStyle(.white, .black.opacity(0.6))
                                 }
-                                .offset(x: 6, y: -6)
+                                .offset(x: 7, y: -7)
                             }
                     }
                     Spacer()
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 18)
             }
 
-            HStack(spacing: 24) {
+            HStack(spacing: 0) {
                 PhotosPicker(
                     selection: $pickerItems,
                     maxSelectionCount: 3 - photos.count,
                     matching: .images
                 ) {
                     Image(systemName: "photo.on.rectangle")
-                        .font(.title2)
-                        .frame(width: 56, height: 56)
-                        .background(.ultraThinMaterial, in: Circle())
+                        .font(.title3)
+                        .frame(width: 52, height: 52)
+                        .background(.white.opacity(0.12), in: Circle())
+                        .foregroundStyle(.white)
                 }
                 .disabled(photos.count >= 3)
+                .frame(maxWidth: .infinity)
 
                 Button {
                     Task {
@@ -123,44 +155,56 @@ struct ScanView: View {
                         }
                     }
                 } label: {
-                    Circle()
-                        .strokeBorder(.white, lineWidth: 4)
-                        .frame(width: 76, height: 76)
-                        .background(Circle().fill(.white.opacity(0.3)))
+                    ZStack {
+                        Circle()
+                            .strokeBorder(.white, lineWidth: 4)
+                            .frame(width: 78, height: 78)
+                        Circle()
+                            .fill(photos.count >= 3 ? Color.white.opacity(0.25) : Brand.emerald)
+                            .frame(width: 62, height: 62)
+                    }
                 }
                 .disabled(photos.count >= 3 || !camera.isAuthorized)
+                .frame(maxWidth: .infinity)
 
                 Button {
                     Task { await generate() }
                 } label: {
-                    if isGenerating {
-                        ProgressView()
-                            .frame(width: 56, height: 56)
-                            .background(.ultraThinMaterial, in: Circle())
-                    } else {
-                        Image(systemName: "sparkles")
-                            .font(.title2)
-                            .frame(width: 56, height: 56)
-                            .background(
-                                photos.isEmpty ? AnyShapeStyle(.ultraThinMaterial) : AnyShapeStyle(.tint),
-                                in: Circle()
-                            )
-                            .foregroundStyle(photos.isEmpty ? Color.secondary : Color.white)
-                    }
+                    Image(systemName: "sparkles")
+                        .font(.title3.weight(.semibold))
+                        .frame(width: 52, height: 52)
+                        .background(
+                            photos.isEmpty ? AnyShapeStyle(.white.opacity(0.12)) : AnyShapeStyle(Brand.amber),
+                            in: Circle()
+                        )
+                        .foregroundStyle(photos.isEmpty ? Color.white.opacity(0.5) : Brand.amberInk)
                 }
                 .disabled(photos.isEmpty || isGenerating)
+                .frame(maxWidth: .infinity)
             }
-            .padding(.bottom, 24)
+            .padding(.horizontal, 12)
+            .padding(.bottom, 18)
         }
+        .background(
+            LinearGradient(
+                colors: [.clear, Color(hex: 0x0A1714).opacity(0.85)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea(edges: .bottom)
+            .allowsHitTesting(false)
+        )
     }
 
     private func hintBanner(_ text: String) -> some View {
         Text(text)
-            .font(.subheadline.weight(.medium))
+            .font(.footnote.weight(.medium))
+            .fontDesign(.rounded)
+            .foregroundStyle(Brand.forest)
             .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(.ultraThinMaterial, in: Capsule())
-            .padding(.top, 12)
+            .padding(.vertical, 9)
+            .background(Brand.paper.opacity(0.94), in: Capsule())
+            .padding(.top, 8)
     }
 
     private func freeBadge(_ text: String) -> some View {
@@ -169,11 +213,14 @@ struct ScanView: View {
         } label: {
             Label(text, systemImage: "sparkles")
                 .font(.caption.weight(.semibold))
+                .fontDesign(.rounded)
+                .foregroundStyle(Brand.mint)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(.ultraThinMaterial, in: Capsule())
+                .background(Brand.mint.opacity(0.16), in: Capsule())
+                .overlay(Capsule().strokeBorder(Brand.mint.opacity(0.5), lineWidth: 1))
         }
-        .padding(.top, 12)
+        .padding(.top, 10)
     }
 
     private func loadPickedPhotos(_ items: [PhotosPickerItem]) async {
@@ -216,8 +263,4 @@ struct ScanView: View {
             errorMessage = error.localizedDescription
         }
     }
-}
-
-extension GenerateResponse: Identifiable {
-    var id: String { draft.title + draft.soldCompsQuery }
 }
