@@ -15,6 +15,16 @@ DerivedData/
 
 # Секреты — никогда не коммитить (репозиторий публичный)
 secrets.local.txt
+ios/Secrets.xcconfig
+ios/AuthKey_*.p8
+
+# fastlane / сборка
+ios/build/
+ios/build-overrides.xcconfig
+ios/fastlane/report.xml
+ios/fastlane/Preview.html
+ios/fastlane/test_output/
+ios/*.ipa
 
 # OS
 .DS_Store

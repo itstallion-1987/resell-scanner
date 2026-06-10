@@ -1,0 +1,11 @@
+# match хранит сертификаты подписи и provisioning-профили в отдельном ПРИВАТНОМ git-репозитории
+# в зашифрованном виде (ключ — MATCH_PASSWORD). CI достаёт их оттуда, локальный Mac не нужен.
+git_url(ENV["MATCH_GIT_URL"])                   # напр. https://github.com/yourname/resell-scanner-certs
+storage_mode("git")
+type("appstore")
+app_identifier([ENV["APP_IDENTIFIER"]])
+# Две РАЗНЫЕ аутентификации:
+#   - к приватному git-репо сертификатов — через MATCH_GIT_BASIC_AUTHORIZATION
+#     (base64 от строки "x-access-token:<PAT>"), задаётся секретом в release.yml;
+#   - к Apple (создание/чтение сертификатов и профилей) — через App Store Connect
+#     API key, передаётся из Fastfile параметром api_key. Логин/пароль и 2FA не нужны.

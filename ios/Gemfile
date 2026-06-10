@@ -1,0 +1,6 @@
+source "https://rubygems.org"
+
+# Версии запинены для воспроизводимости CI. После первого прогона на раннере
+# закоммитьте сгенерированный ios/Gemfile.lock (cd ios && bundle install).
+gem "fastlane", "~> 2.220"
+gem "xcodeproj", "~> 1.25"
