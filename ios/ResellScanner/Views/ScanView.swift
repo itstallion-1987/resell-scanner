@@ -24,50 +24,42 @@ struct ScanView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(hex: 0x10201C).ignoresSafeArea()
+                Brand.cameraDark.ignoresSafeArea()
                 if camera.isAuthorized {
                     CameraPreview(session: camera.session)
                         .ignoresSafeArea()
                 } else {
                     VStack(spacing: 16) {
-                        ZStack {
-                            ViewfinderBrackets()
-                                .stroke(Brand.mint.opacity(0.5), style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                                .frame(width: 72, height: 72)
-                            Image(systemName: "camera.fill")
-                                .font(.title2)
-                                .foregroundStyle(Brand.mint.opacity(0.6))
-                        }
+                        TagMark(size: 40, color: Brand.paper.opacity(0.55))
                         Text("Camera unavailable")
                             .font(.headline)
-                            .fontDesign(.rounded)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Brand.paper)
                         Text("Enable camera access in Settings, or pick photos from your library below.")
                             .font(.footnote)
-                            .foregroundStyle(.white.opacity(0.6))
+                            .foregroundStyle(Brand.paper.opacity(0.6))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
                     }
                 }
 
-                // Фирменные уголки видоискателя поверх превью
+                // Рамка кадрирования — бумажно-белые уголки видоискателя
                 if camera.isAuthorized {
                     ViewfinderBrackets(cornerLength: 0.12)
-                        .stroke(Brand.mint.opacity(0.85), style: StrokeStyle(lineWidth: 3.5, lineCap: .round))
+                        .stroke(Brand.paper.opacity(0.9), style: StrokeStyle(lineWidth: 3, lineCap: .round))
                         .padding(.horizontal, 34)
                         .padding(.top, 130)
-                        .padding(.bottom, 210)
+                        .padding(.bottom, 215)
                         .allowsHitTesting(false)
                 }
 
                 VStack(spacing: 8) {
                     if !purchases.isPro, let remaining = appState.remainingFree, remaining >= 0 {
-                        freeBadge("\(remaining) of 5 free left")
+                        freeBadge("FREE × \(remaining)")
                     }
                     if photos.count == 1 {
-                        hintBanner("Now add a photo of the brand/size tag — it boosts accuracy")
+                        hintChip("Now add a photo of the brand/size tag — it boosts accuracy")
                     } else if photos.isEmpty {
-                        hintBanner("Take 1–3 photos: overall view, tag, flaws")
+                        hintChip("Take 1–3 photos: overall view, tag, flaws")
                     }
                     Spacer()
                     controls
@@ -76,8 +68,7 @@ struct ScanView: View {
             .overlay { if isGenerating { GenerationProgressView() } }
             .task { await camera.requestAccessAndStart() }
             .onDisappear { camera.stop() }
-            // onDisappear НЕ вызывается при показе fullScreenCover (вью остаётся
-            // в иерархии) — гасим камеру явно, пока открыт результат
+            // onDisappear НЕ вызывается при показе fullScreenCover — гасим камеру явно
             .onChange(of: result?.id) { _, newID in
                 if newID != nil {
                     camera.stop()
@@ -130,17 +121,17 @@ struct ScanView: View {
                             .resizable()
                             .scaledToFill()
                             .frame(width: 54, height: 54)
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: 5))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .strokeBorder(Brand.mint, lineWidth: 1.5)
+                                RoundedRectangle(cornerRadius: 5)
+                                    .strokeBorder(Brand.paper, lineWidth: 1.6)
                             )
                             .overlay(alignment: .topTrailing) {
                                 Button {
                                     photos.remove(at: index)
                                 } label: {
                                     Image(systemName: "xmark.circle.fill")
-                                        .foregroundStyle(.white, .black.opacity(0.6))
+                                        .foregroundStyle(Brand.paper, Brand.ink.opacity(0.75))
                                 }
                                 .offset(x: 7, y: -7)
                             }
@@ -158,8 +149,8 @@ struct ScanView: View {
                         Image(systemName: note.isEmpty ? "text.bubble" : "text.bubble.fill")
                             .font(.callout)
                             .frame(width: 38, height: 38)
-                            .background(.white.opacity(0.12), in: Circle())
-                            .foregroundStyle(note.isEmpty ? .white : Brand.mint)
+                            .background(Brand.paper.opacity(note.isEmpty ? 0.16 : 0.92), in: Circle())
+                            .foregroundStyle(note.isEmpty ? Brand.paper : Brand.ink)
                     }
                     PhotosPicker(
                         selection: $pickerItems,
@@ -169,8 +160,8 @@ struct ScanView: View {
                         Image(systemName: "photo.on.rectangle")
                             .font(.title3)
                             .frame(width: 52, height: 52)
-                            .background(.white.opacity(0.12), in: Circle())
-                            .foregroundStyle(.white)
+                            .background(Brand.paper.opacity(0.16), in: Circle())
+                            .foregroundStyle(Brand.paper)
                     }
                     .disabled(photos.count >= 3)
                 }
@@ -185,10 +176,10 @@ struct ScanView: View {
                 } label: {
                     ZStack {
                         Circle()
-                            .strokeBorder(.white, lineWidth: 4)
+                            .strokeBorder(Brand.paper, lineWidth: 4)
                             .frame(width: 78, height: 78)
                         Circle()
-                            .fill(photos.count >= 3 ? Color.white.opacity(0.25) : Brand.emerald)
+                            .fill(photos.count >= 3 ? Brand.paper.opacity(0.25) : Brand.stamp)
                             .frame(width: 62, height: 62)
                     }
                 }
@@ -199,13 +190,13 @@ struct ScanView: View {
                     Task { await generate() }
                 } label: {
                     Image(systemName: "sparkles")
-                        .font(.title3.weight(.semibold))
+                        .font(.title3.weight(.bold))
                         .frame(width: 52, height: 52)
                         .background(
-                            photos.isEmpty ? AnyShapeStyle(.white.opacity(0.12)) : AnyShapeStyle(Brand.amber),
+                            photos.isEmpty ? AnyShapeStyle(Brand.paper.opacity(0.16)) : AnyShapeStyle(Brand.paper),
                             in: Circle()
                         )
-                        .foregroundStyle(photos.isEmpty ? Color.white.opacity(0.5) : Brand.amberInk)
+                        .foregroundStyle(photos.isEmpty ? Brand.paper.opacity(0.5) : Brand.ink)
                 }
                 .disabled(photos.isEmpty || isGenerating)
                 .frame(maxWidth: .infinity)
@@ -215,7 +206,7 @@ struct ScanView: View {
         }
         .background(
             LinearGradient(
-                colors: [.clear, Color(hex: 0x0A1714).opacity(0.85)],
+                colors: [.clear, Brand.ink.opacity(0.8)],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -224,14 +215,16 @@ struct ScanView: View {
         )
     }
 
-    private func hintBanner(_ text: String) -> some View {
+    private func hintChip(_ text: String) -> some View {
         Text(text)
             .font(.footnote.weight(.medium))
-            .fontDesign(.rounded)
-            .foregroundStyle(Brand.forest)
-            .padding(.horizontal, 16)
+            .foregroundStyle(Brand.ink)
+            .padding(.horizontal, 14)
             .padding(.vertical, 9)
-            .background(Brand.paper.opacity(0.94), in: Capsule())
+            .background(Brand.ticket.opacity(0.95))
+            .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Brand.ink, lineWidth: 1.2))
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+            .padding(.horizontal, 30)
             .padding(.top, 8)
     }
 
@@ -239,14 +232,16 @@ struct ScanView: View {
         Button {
             appState.showPaywall = true
         } label: {
-            Label(text, systemImage: "sparkles")
-                .font(.caption.weight(.semibold))
-                .fontDesign(.rounded)
-                .foregroundStyle(Brand.mint)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(Brand.mint.opacity(0.16), in: Capsule())
-                .overlay(Capsule().strokeBorder(Brand.mint.opacity(0.5), lineWidth: 1))
+            Text(text)
+                .font(.caption.weight(.bold))
+                .kerning(1.4)
+                .foregroundStyle(Brand.stamp)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Brand.ticket.opacity(0.95))
+                .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Brand.stamp, lineWidth: 1.6))
+                .clipShape(RoundedRectangle(cornerRadius: 3))
+                .rotationEffect(.degrees(-2))
         }
         .padding(.top, 10)
     }

@@ -30,8 +30,7 @@ struct ResultView: View {
         PlatformFormatter.format(draft, for: platform)
     }
 
-    // Без собственного NavigationStack: из истории экран пушится в существующий стек,
-    // из ScanView оборачивается в NavigationStack на месте показа fullScreenCover.
+    // Без собственного NavigationStack: из истории — пуш, из ScanView — обёртка на месте cover
     var body: some View {
         Group {
             if draft.recognized {
@@ -42,22 +41,19 @@ struct ResultView: View {
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Brand.forest, for: .navigationBar)
+        .toolbarBackground(Brand.paper, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 HStack(spacing: 8) {
-                    BrandMark(size: 18)
-                    Text(draft.recognized ? "Listing draft" : "Try again")
-                        .font(.headline)
-                        .fontDesign(.rounded)
-                        .foregroundStyle(.white)
+                    TagMark(size: 15)
+                    Text("RESELL SCANNER").printLabel(Brand.ink)
                 }
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Done") { dismiss() }
-                    .tint(Brand.mint)
+                    .font(.subheadline.weight(.semibold))
+                    .tint(Brand.stamp)
             }
         }
         .sheet(isPresented: $showPaywall) { PaywallView() }
@@ -74,26 +70,26 @@ struct ResultView: View {
     private var listingBody: some View {
         ScrollView {
             VStack(spacing: 12) {
-                headerCard
-                priceCard
-                copyCard(label: "Title (\(formatted.title.count)/\(platform.titleLimit))", value: formatted.title)
-                copyCard(label: "Description", value: formatted.description, lineLimit: 14)
-                detailsCard
+                receiptHeader
+                priceTicket
+                copyTicket(label: "Title · \(formatted.title.count)/\(platform.titleLimit)", value: formatted.title)
+                copyTicket(label: "Description", value: formatted.description, lineLimit: 14)
+                detailsTicket
                 if !draft.keywords.isEmpty {
-                    copyCard(label: "Keywords", value: draft.keywords.joined(separator: ", "))
+                    copyTicket(label: "Keywords", value: draft.keywords.joined(separator: ", "))
                 }
                 if draft.confidence == "low", let hint = draft.retryHint {
-                    hintBanner(hint)
+                    hintTicket(hint)
                 }
-                Text("Description is based on photos only. Verify authenticity of branded items separately before listing.")
+                Text("* Description is based on photos only. Verify authenticity of branded items separately before listing.")
                     .font(.caption2)
-                    .foregroundStyle(Brand.inkMuted)
+                    .foregroundStyle(Brand.inkFaint)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 4)
+                    .padding(.horizontal, 18)
+                    .padding(.top, 2)
             }
             .padding(.horizontal, 14)
-            .padding(.top, 14)
+            .padding(.top, 12)
             .padding(.bottom, 8)
         }
         .background(Brand.paper.ignoresSafeArea())
@@ -101,77 +97,69 @@ struct ResultView: View {
             Button {
                 copyAll()
             } label: {
-                Label(
-                    copiedField == "ALL" ? "Copied!" : "Copy all",
-                    systemImage: copiedField == "ALL" ? "checkmark" : "doc.on.doc.fill"
-                )
+                HStack(spacing: 8) {
+                    Image(systemName: copiedField == "ALL" ? "checkmark" : "doc.on.doc.fill")
+                    Text(copiedField == "ALL" ? "Copied" : "Copy all")
+                }
             }
-            .buttonStyle(BrandPrimaryButtonStyle())
+            .buttonStyle(InkButtonStyle())
             .padding(.horizontal, 14)
             .padding(.top, 8)
             .padding(.bottom, 6)
-            .background(Brand.paper.opacity(0.96))
+            .background(Brand.paper.opacity(0.97))
         }
     }
 
-    private var headerCard: some View {
-        HStack(alignment: .center, spacing: 10) {
-            if let photo = photos.first {
-                Image(uiImage: photo)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 52, height: 52)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-            VStack(alignment: .leading, spacing: 3) {
-                FieldLabel(text: "Platform")
-                // Переключение платформы — фича Pro; переформатирование локальное
-                Picker("Platform", selection: platformBinding) {
-                    ForEach(Platform.allCases) { p in
-                        Text(p.displayName).tag(p)
-                    }
+    private var receiptHeader: some View {
+        VStack(spacing: 8) {
+            HStack(alignment: .center, spacing: 12) {
+                if let photo = photos.first {
+                    Image(uiImage: photo)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 54, height: 54)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                        .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Brand.ink, lineWidth: 1.2))
                 }
-                .pickerStyle(.menu)
-                .tint(Brand.emerald)
-                .labelsHidden()
-            }
-            Spacer()
-            Text(draft.conditionLabel)
-                .font(.caption.weight(.semibold))
-                .fontDesign(.rounded)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Brand.emerald.opacity(0.12), in: Capsule())
-                .foregroundStyle(Brand.emerald)
-        }
-        .paperCard()
-    }
-
-    private var priceCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 3) {
-                    FieldLabel(text: "Price estimate")
-                    Text(draft.priceRangeText)
-                        .font(.system(.title, design: .rounded).weight(.bold))
-                        .foregroundStyle(Brand.ink)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Marketplace").printLabel()
+                    Picker("Platform", selection: platformBinding) {
+                        ForEach(Platform.allCases) { p in
+                            Text(p.displayName).tag(p)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .tint(Brand.ink)
+                    .labelsHidden()
                 }
                 Spacer()
-                Image(systemName: "tag.fill")
-                    .font(.title3)
-                    .foregroundStyle(Brand.amber)
-                    .rotationEffect(.degrees(-15))
+                StampLabel(text: draft.confidence == "high" ? "Ready" : "Check")
+            }
+            BarcodeView(seed: draft.title + draft.category, height: 18)
+        }
+        .ticketCard()
+    }
+
+    private var priceTicket: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Price estimate").printLabel()
+                    Text(draft.priceRangeText).mono(30, weight: .bold)
+                }
+                Spacer()
+                TagMark(size: 24, color: Brand.stamp)
             }
             Text(draft.priceRange.note)
                 .font(.caption)
-                .foregroundStyle(Brand.inkMuted)
+                .foregroundStyle(Brand.inkSoft)
             if !draft.soldCompsQuery.isEmpty {
-                Divider().overlay(Brand.lineOnPaper)
-                HStack {
-                    VStack(alignment: .leading, spacing: 3) {
-                        FieldLabel(text: "Check sold comps")
+                Perforation()
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Check sold comps").printLabel()
                         Text(draft.soldCompsQuery)
-                            .font(.footnote)
+                            .font(.system(.footnote, design: .monospaced))
                             .foregroundStyle(Brand.ink)
                             .lineLimit(2)
                     }
@@ -180,37 +168,27 @@ struct ResultView: View {
                 }
             }
         }
-        .padding(14)
-        .background(Brand.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(alignment: .leading) {
-            UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 16)
-                .fill(Brand.amber)
-                .frame(width: 4)
-        }
-        .shadow(color: Brand.ink.opacity(0.05), radius: 10, y: 3)
+        .ticketCard(holePunch: true)
     }
 
-    private var detailsCard: some View {
+    private var detailsTicket: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 0) {
                 if let brand = draft.brand {
-                    BrandChipLabel(title: "Brand", value: brand)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    detailColumn("Brand", brand)
                 }
                 if let size = draft.size {
-                    BrandChipLabel(title: "Size", value: size)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    detailColumn("Size", size)
                 }
-                BrandChipLabel(title: "Category", value: draft.category)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                detailColumn("Category", draft.category)
             }
             if let materials = draft.materials {
-                BrandChipLabel(title: "Materials", value: materials)
+                detailColumn("Materials", materials)
             }
-            Divider().overlay(Brand.lineOnPaper)
+            Perforation()
             HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 3) {
-                    FieldLabel(text: "Condition")
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Condition").printLabel()
                     Text("\(draft.conditionLabel). \(draft.conditionDetails)")
                         .font(.footnote)
                         .foregroundStyle(Brand.ink)
@@ -219,13 +197,23 @@ struct ResultView: View {
                 copyButton(label: "Condition", value: "\(draft.conditionLabel). \(draft.conditionDetails)")
             }
         }
-        .paperCard()
+        .ticketCard()
     }
 
-    private func copyCard(label: String, value: String, lineLimit: Int = 6) -> some View {
+    private func detailColumn(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).printLabel()
+            Text(value)
+                .font(.system(.subheadline, design: .monospaced).weight(.semibold))
+                .foregroundStyle(Brand.ink)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func copyTicket(label: String, value: String, lineLimit: Int = 6) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            VStack(alignment: .leading, spacing: 4) {
-                FieldLabel(text: label)
+            VStack(alignment: .leading, spacing: 5) {
+                Text(label).printLabel()
                 Text(value)
                     .font(.subheadline)
                     .foregroundStyle(Brand.ink)
@@ -235,7 +223,7 @@ struct ResultView: View {
             Spacer(minLength: 0)
             copyButton(label: label, value: value)
         }
-        .paperCard()
+        .ticketCard()
     }
 
     private func copyButton(label: String, value: String) -> some View {
@@ -244,28 +232,28 @@ struct ResultView: View {
             onCopied(field: label, event: "copy_field")
         } label: {
             Image(systemName: copiedField == label ? "checkmark" : "doc.on.doc")
-                .font(.subheadline.weight(.semibold))
+                .font(.subheadline.weight(.bold))
                 .frame(width: 34, height: 34)
-                .background(
-                    (copiedField == label ? Color.green : Brand.emerald).opacity(0.12),
-                    in: RoundedRectangle(cornerRadius: 10, style: .continuous)
-                )
-                .foregroundStyle(copiedField == label ? .green : Brand.emerald)
+                .foregroundStyle(copiedField == label ? Brand.ticket : Brand.ink)
+                .background(copiedField == label ? Brand.ink : Brand.ticket)
+                .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Brand.ink, lineWidth: 1.3))
+                .clipShape(RoundedRectangle(cornerRadius: 4))
         }
         .buttonStyle(.plain)
     }
 
-    private func hintBanner(_ hint: String) -> some View {
+    private func hintTicket(_ hint: String) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(Brand.amber)
+            StampLabel(text: "Tip", angle: 0)
             Text(hint)
                 .font(.footnote)
                 .foregroundStyle(Brand.ink)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(Brand.amber.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Brand.ticket)
+        .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Brand.stamp, lineWidth: 1.3))
+        .clipShape(RoundedRectangle(cornerRadius: 5))
     }
 
     private var platformBinding: Binding<Platform> {
@@ -296,15 +284,12 @@ struct ResultView: View {
     private func onCopied(field: String, event: String) {
         flashCopied(field)
         Analytics.track(event, platform: platform)
-        // Запрос отзыва в момент полученной ценности (после нескольких копирований)
         ReviewManager.registerSuccessfulCopy()
         ReviewManager.maybeRequestReview(requestReview)
     }
 
     private func flashCopied(_ field: String) {
         copiedField = field
-        // Поколение защищает от гонки: повторный тап в пределах 1.5с не даст
-        // первому таймеру сбросить галочку раньше времени
         let generation = UUID()
         copyGeneration = generation
         Task {
@@ -326,20 +311,16 @@ struct ResultView: View {
     private var notRecognizedBody: some View {
         VStack(spacing: 22) {
             Spacer()
-            ZStack {
-                ViewfinderBrackets()
-                    .stroke(Brand.amber, style: StrokeStyle(lineWidth: 5, lineCap: .round))
-                    .frame(width: 84, height: 84)
-                Image(systemName: "questionmark")
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
-                    .foregroundStyle(Brand.amber)
+            VStack(spacing: 16) {
+                TagMark(size: 44, color: Brand.inkFaint)
+                StampLabel(text: "Void", angle: -8)
             }
             Text("Couldn't read the item")
-                .font(.system(.title2, design: .rounded).weight(.bold))
+                .font(.title2.weight(.heavy))
                 .foregroundStyle(Brand.ink)
             Text(draft.retryHint ?? "Retake the photos in better light and include the brand/size tag.")
                 .font(.body)
-                .foregroundStyle(Brand.inkMuted)
+                .foregroundStyle(Brand.inkSoft)
                 .multilineTextAlignment(.center)
             Spacer()
             Button {
@@ -347,7 +328,7 @@ struct ResultView: View {
             } label: {
                 Text(draft.retryHint != nil ? "Add the photo & retry" : "Retake photos")
             }
-            .buttonStyle(BrandPrimaryButtonStyle())
+            .buttonStyle(InkButtonStyle())
         }
         .padding(28)
         .background(Brand.paper.ignoresSafeArea())

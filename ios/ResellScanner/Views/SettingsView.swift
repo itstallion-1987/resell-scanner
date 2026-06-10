@@ -75,7 +75,7 @@ struct SettingsView: View {
                                 .foregroundStyle(Brand.ink)
                             Spacer()
                             Text(copiedDeviceID ? "Copied!" : String(DeviceID.current.prefix(8)) + "…")
-                                .foregroundStyle(copiedDeviceID ? Brand.emerald : .secondary)
+                                .foregroundStyle(copiedDeviceID ? Brand.stamp : .secondary)
                                 .font(.callout.monospaced())
                         }
                     }
@@ -87,6 +87,6 @@ struct SettingsView: View {
             .background(Brand.paper.ignoresSafeArea())
             .navigationTitle("Settings")
         }
-        .tint(Brand.emerald)
+        .tint(Brand.stamp)
     }
 }

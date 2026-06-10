@@ -7,40 +7,34 @@ struct OnboardingView: View {
 
     var body: some View {
         ZStack {
-            Brand.forestGradient.ignoresSafeArea()
+            Brand.paper.ignoresSafeArea()
             TabView(selection: $page) {
                 slide(
-                    icon: "bolt.fill",
-                    title: "A listing in 30 seconds",
-                    text: "Snap a photo — get a ready-to-paste title, description, keywords and price estimate. No accounts, no integrations, no setup."
+                    stamp: "30 seconds",
+                    title: "Photo →\nlisting.",
+                    text: "Snap a photo — get a ready-to-paste title, description, keywords and price estimate. No accounts. No integrations. No setup."
                 )
                 .tag(0)
 
                 slide(
-                    icon: "tag.fill",
-                    title: "Shoot 1–3 angles",
+                    stamp: "Pro tip",
+                    title: "Shoot the\ntag too.",
                     text: "Overall view, the brand/size tag, and any flaws. The tag photo dramatically improves brand, size and materials accuracy."
                 )
                 .tag(1)
 
-                VStack(spacing: 22) {
+                VStack(alignment: .leading, spacing: 18) {
                     Spacer()
-                    ZStack {
-                        ViewfinderBrackets()
-                            .stroke(Brand.mint, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                            .frame(width: 110, height: 110)
-                        Image(systemName: "camera.fill")
-                            .font(.system(size: 40))
-                            .foregroundStyle(Brand.mint)
-                    }
-                    Text("Ready to scan")
-                        .font(.system(.largeTitle, design: .rounded).weight(.bold))
-                        .foregroundStyle(.white)
+                    StampLabel(text: "Final step", angle: -3)
+                    Text("Ready\nto scan.")
+                        .font(.system(size: 46, weight: .heavy))
+                        .foregroundStyle(Brand.ink)
+                        .lineSpacing(-2)
                     Text("Allow camera access to photograph your first item.")
                         .font(.body)
-                        .foregroundStyle(.white.opacity(0.65))
-                        .multilineTextAlignment(.center)
+                        .foregroundStyle(Brand.inkSoft)
                     Spacer()
+                    BarcodeView(seed: "onboarding-final", height: 24)
                     Button {
                         Task {
                             _ = await AVCaptureDevice.requestAccess(for: .video)
@@ -49,46 +43,51 @@ struct OnboardingView: View {
                     } label: {
                         Text("Allow camera & start")
                     }
-                    .buttonStyle(BrandPrimaryButtonStyle())
-                    .padding(.bottom, 40)
+                    .buttonStyle(InkButtonStyle())
+                    .padding(.bottom, 44)
                 }
-                .padding(.horizontal, 30)
+                .padding(.horizontal, 28)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .tag(2)
             }
             .tabViewStyle(.page)
             .indexViewStyle(.page(backgroundDisplayMode: .never))
+
+            VStack {
+                HStack(spacing: 8) {
+                    TagMark(size: 16)
+                    Text("RESELL SCANNER").printLabel(Brand.ink)
+                    Spacer()
+                    Text("№ 00\(page + 1)").mono(13)
+                }
+                .padding(.horizontal, 28)
+                .padding(.top, 8)
+                Spacer()
+            }
         }
     }
 
-    private func slide(icon: String, title: String, text: String) -> some View {
-        VStack(spacing: 22) {
+    private func slide(stamp: String, title: String, text: String) -> some View {
+        VStack(alignment: .leading, spacing: 18) {
             Spacer()
-            ZStack {
-                ViewfinderBrackets()
-                    .stroke(Brand.mint, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                    .frame(width: 110, height: 110)
-                Image(systemName: icon)
-                    .font(.system(size: 40))
-                    .foregroundStyle(Brand.mint)
-            }
+            StampLabel(text: stamp, angle: -3)
             Text(title)
-                .font(.system(.largeTitle, design: .rounded).weight(.bold))
-                .foregroundStyle(.white)
-                .multilineTextAlignment(.center)
+                .font(.system(size: 46, weight: .heavy))
+                .foregroundStyle(Brand.ink)
+                .lineSpacing(-2)
             Text(text)
                 .font(.body)
-                .foregroundStyle(.white.opacity(0.65))
-                .multilineTextAlignment(.center)
+                .foregroundStyle(Brand.inkSoft)
             Spacer()
             HStack(spacing: 6) {
-                Image(systemName: "chevron.left")
-                Text("Swipe")
-                Image(systemName: "chevron.right")
+                Text("Swipe").printLabel()
+                Image(systemName: "arrow.right")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(Brand.inkFaint)
             }
-            .font(.caption)
-            .foregroundStyle(.white.opacity(0.35))
             .padding(.bottom, 56)
         }
-        .padding(.horizontal, 30)
+        .padding(.horizontal, 28)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

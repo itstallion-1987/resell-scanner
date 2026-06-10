@@ -22,7 +22,7 @@ struct RootView: View {
                 }
             }
         }
-        .tint(Brand.emerald)
+        .tint(Brand.stamp)
         // Бренд построен на светлой «бумаге ценника»; фиксируем светлую схему,
         // чтобы интерфейс выглядел одинаково у всех (тёмная тема — бэклог)
         .preferredColorScheme(.light)

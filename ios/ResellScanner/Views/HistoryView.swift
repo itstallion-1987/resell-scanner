@@ -22,7 +22,7 @@ struct HistoryView: View {
             .navigationTitle("History")
             .toolbarBackground(Brand.paper, for: .navigationBar)
         }
-        .tint(Brand.emerald)
+        .tint(Brand.stamp)
     }
 
     private var listBody: some View {
@@ -48,19 +48,20 @@ struct HistoryView: View {
                     row(listing)
                 }
                 .listRowBackground(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Brand.card)
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(Brand.ticket)
+                        .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Brand.ink, lineWidth: 1.2))
                         .padding(.vertical, 4)
                 )
                 .listRowSeparator(.hidden)
                 .swipeActions(edge: .leading, allowsFullSwipe: false) {
                     if listing.status != .listed {
                         Button { setStatus(listing, .listed) } label: { Label("Listed", systemImage: "checkmark.circle") }
-                            .tint(Brand.emerald)
+                            .tint(Brand.ink)
                     }
                     if listing.status != .sold {
                         Button { setStatus(listing, .sold) } label: { Label("Sold", systemImage: "dollarsign.circle") }
-                            .tint(Brand.amber)
+                            .tint(Brand.stamp)
                     }
                 }
             }
@@ -68,7 +69,7 @@ struct HistoryView: View {
                 for index in offsets {
                     modelContext.delete(listings[index])
                 }
-                // Явная фиксация: autosave отложенный, kill сразу после свайпа терял бы изменение
+                // Явная фиксация: autosave отложенный
                 try? modelContext.save()
             }
         }
@@ -82,27 +83,25 @@ struct HistoryView: View {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: 50, height: 50)
-                    .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+                    .frame(width: 48, height: 48)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Brand.ink, lineWidth: 1))
             } else {
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                RoundedRectangle(cornerRadius: 4)
                     .fill(Brand.paper)
-                    .frame(width: 50, height: 50)
-                    .overlay(
-                        Image(systemName: "tag")
-                            .foregroundStyle(Brand.inkMuted)
-                    )
+                    .frame(width: 48, height: 48)
+                    .overlay(Image(systemName: "tag").foregroundStyle(Brand.inkFaint))
             }
             VStack(alignment: .leading, spacing: 5) {
                 Text(listing.title)
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(Brand.ink)
                     .lineLimit(2)
-                HStack(spacing: 6) {
-                    statusChip(listing.status)
+                HStack(spacing: 8) {
+                    statusStamp(listing.status)
                     Text("\(listing.platform.displayName) · \(listing.createdAt.formatted(date: .abbreviated, time: .shortened))")
                         .font(.caption)
-                        .foregroundStyle(Brand.inkMuted)
+                        .foregroundStyle(Brand.inkFaint)
                 }
             }
         }
@@ -114,64 +113,56 @@ struct HistoryView: View {
         try? modelContext.save()
     }
 
-    private func statusChip(_ status: ListingStatus) -> some View {
+    private func statusStamp(_ status: ListingStatus) -> some View {
         let color: Color = switch status {
-        case .draft: Brand.inkMuted
-        case .listed: Brand.emerald
-        case .sold: Brand.amber
+        case .draft: Brand.inkFaint
+        case .listed: Brand.ink
+        case .sold: Brand.stamp
         }
         return Text(status.label.uppercased())
-            .font(.caption2.weight(.bold))
-            .tracking(0.5)
+            .font(.system(size: 9, weight: .bold))
+            .kerning(1)
             .foregroundStyle(color)
-            .padding(.horizontal, 7)
+            .padding(.horizontal, 5)
             .padding(.vertical, 2)
-            .background(color.opacity(0.14), in: Capsule())
+            .overlay(RoundedRectangle(cornerRadius: 2).strokeBorder(color, lineWidth: 1.1))
+            .rotationEffect(.degrees(status == .sold ? -3 : 0))
     }
 
     private var emptyState: some View {
         VStack(spacing: 16) {
-            ZStack {
-                ViewfinderBrackets()
-                    .stroke(Brand.lineOnPaper, style: StrokeStyle(lineWidth: 5, lineCap: .round))
-                    .frame(width: 76, height: 76)
-                Image(systemName: "clock.arrow.circlepath")
-                    .font(.title2)
-                    .foregroundStyle(Brand.inkMuted)
-            }
+            TagMark(size: 42, color: Brand.inkFaint)
             Text("No listings yet")
-                .font(.system(.title3, design: .rounded).weight(.bold))
+                .font(.title3.weight(.heavy))
                 .foregroundStyle(Brand.ink)
             Text("Your generated listings will appear here.")
                 .font(.subheadline)
-                .foregroundStyle(Brand.inkMuted)
+                .foregroundStyle(Brand.inkSoft)
         }
     }
 
     private var lockedState: some View {
         VStack(spacing: 18) {
-            ZStack {
-                ViewfinderBrackets()
-                    .stroke(Brand.amber, style: StrokeStyle(lineWidth: 5, lineCap: .round))
-                    .frame(width: 76, height: 76)
+            VStack(spacing: 12) {
                 Image(systemName: "lock.fill")
-                    .font(.title2)
-                    .foregroundStyle(Brand.amber)
+                    .font(.title)
+                    .foregroundStyle(Brand.ink)
+                StampLabel(text: "Pro only", angle: -5)
             }
             Text("History is a Pro feature")
-                .font(.system(.title3, design: .rounded).weight(.bold))
+                .font(.title3.weight(.heavy))
                 .foregroundStyle(Brand.ink)
             Text("Upgrade to keep every listing you've created and reopen it anytime.")
                 .font(.subheadline)
-                .foregroundStyle(Brand.inkMuted)
+                .foregroundStyle(Brand.inkSoft)
                 .multilineTextAlignment(.center)
             Button {
                 appState.showPaywall = true
             } label: {
-                Text("Upgrade to Pro")
-                    .padding(.horizontal, 26)
+                Text("Get Pro Pass")
+                    .padding(.horizontal, 22)
             }
-            .buttonStyle(BrandPrimaryButtonStyle())
+            .buttonStyle(InkButtonStyle())
             .fixedSize()
         }
         .padding(32)

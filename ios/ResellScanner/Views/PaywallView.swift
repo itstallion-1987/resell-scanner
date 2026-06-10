@@ -14,7 +14,7 @@ struct PaywallView: View {
     private var annualPackage: Package? { purchases.offerings?.current?.annual }
     private var monthlyPackage: Package? { purchases.offerings?.current?.monthly }
 
-    /// Экономия годового тарифа против 12× месячного — считается из реальных цен (любая валюта)
+    /// Экономия годового против 12× месячного — из реальных цен (любая валюта)
     private var annualSavingsPercent: Int? {
         guard let annual = annualPackage?.storeProduct.price,
               let monthly = monthlyPackage?.storeProduct.price,
@@ -29,18 +29,18 @@ struct PaywallView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Brand.forestGradient.ignoresSafeArea()
+                Brand.paper.ignoresSafeArea()
                 ScrollView {
-                    VStack(spacing: 22) {
+                    VStack(spacing: 18) {
                         header
-                        featureList
+                        passTicket
 
                         if isLoading {
                             ProgressView("Loading plans…")
-                                .tint(.white)
-                                .foregroundStyle(.white.opacity(0.8))
+                                .tint(Brand.ink)
+                                .foregroundStyle(Brand.inkSoft)
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 24)
+                                .padding(.vertical, 22)
                         } else if loadFailed {
                             loadFailedState
                         } else {
@@ -53,12 +53,12 @@ struct PaywallView: View {
                                 if purchases.isPro { dismiss() }
                             }
                         }
-                        .font(.footnote.weight(.medium))
-                        .tint(Brand.mint)
+                        .font(.footnote.weight(.semibold))
+                        .tint(Brand.stamp)
 
                         legalFooter
                     }
-                    .padding(.horizontal, 22)
+                    .padding(.horizontal, 20)
                 }
             }
             .toolbar {
@@ -66,8 +66,9 @@ struct PaywallView: View {
                     Button {
                         dismiss()
                     } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.white.opacity(0.55))
+                        Image(systemName: "xmark")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(Brand.ink)
                     }
                 }
             }
@@ -88,47 +89,49 @@ struct PaywallView: View {
 
     private var header: some View {
         VStack(spacing: 10) {
-            BrandMark(size: 52, color: Brand.amber)
-                .padding(.top, 18)
-            Text("Resell Scanner Pro")
-                .font(.system(.largeTitle, design: .rounded).weight(.bold))
-                .foregroundStyle(.white)
+            TagMark(size: 40, color: Brand.ink)
+                .padding(.top, 8)
+            Text("PRO PASS")
+                .font(.system(size: 38, weight: .heavy))
+                .kerning(2)
+                .foregroundStyle(Brand.ink)
             if !purchases.isPro, appState.remainingFree == 0 {
-                Text("You've used all 5 free listings.")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Brand.amber)
+                StampLabel(text: "5 of 5 free used", angle: -2)
             }
             Text("Pays for itself with one sale — a fraction of the $29+/mo crosslisting platforms, with no setup.")
                 .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.65))
+                .foregroundStyle(Brand.inkSoft)
                 .multilineTextAlignment(.center)
         }
     }
 
-    private var featureList: some View {
-        VStack(alignment: .leading, spacing: 14) {
+    private var passTicket: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Admit one · reseller").printLabel()
             feature("infinity", "Unlimited listings")
             feature("clock.arrow.circlepath", "Full listing history")
             feature("arrow.left.arrow.right", "Switch platforms on any draft")
             feature("doc.on.doc.fill", "Copy the whole listing in one tap")
+            Perforation()
+            BarcodeView(seed: "resell-scanner-pro-pass", height: 20)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(18)
-        .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .ticketCard(holePunch: true)
     }
 
     private var plans: some View {
         VStack(spacing: 10) {
-            // Якорь — годовой тариф, на янтаре
             if let annual = annualPackage {
-                purchaseButton(
-                    package: annual,
-                    badge: annualSavingsPercent.map { "Save \($0)% vs monthly" } ?? "Best value",
-                    prominent: true
-                )
+                ZStack(alignment: .topTrailing) {
+                    purchaseButton(package: annual, prominent: true)
+                    if let pct = annualSavingsPercent {
+                        StampLabel(text: "Save \(pct)%", angle: 6)
+                            .offset(x: -8, y: -10)
+                    }
+                }
             }
             if let monthly = monthlyPackage {
-                purchaseButton(package: monthly, badge: nil, prominent: false)
+                purchaseButton(package: monthly, prominent: false)
             }
         }
     }
@@ -137,28 +140,28 @@ struct PaywallView: View {
         VStack(spacing: 12) {
             Text("Couldn't load subscription options.")
                 .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(Brand.inkSoft)
             Button("Retry") {
                 Task { await load() }
             }
-            .buttonStyle(BrandGhostButtonStyle())
+            .buttonStyle(GhostInkButtonStyle())
         }
-        .padding(.vertical, 14)
+        .padding(.vertical, 12)
     }
 
     private var legalFooter: some View {
         VStack(spacing: 10) {
             HStack(spacing: 16) {
                 Link("Privacy Policy", destination: AppConfig.privacyPolicyURL)
-                Text("·").foregroundStyle(.white.opacity(0.4))
+                Text("·").foregroundStyle(Brand.inkFaint)
                 Link("Terms of Use", destination: AppConfig.termsOfUseURL)
             }
             .font(.footnote)
-            .tint(Brand.mint)
+            .tint(Brand.stamp)
 
             Text("Payment is charged to your Apple ID. Subscription renews automatically unless cancelled at least 24 hours before the period ends. Manage in App Store settings.")
                 .font(.caption2)
-                .foregroundStyle(.white.opacity(0.45))
+                .foregroundStyle(Brand.inkFaint)
                 .multilineTextAlignment(.center)
                 .padding(.bottom, 14)
         }
@@ -167,37 +170,34 @@ struct PaywallView: View {
     private func feature(_ icon: String, _ text: String) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .frame(width: 28)
-                .foregroundStyle(Brand.mint)
+                .font(.subheadline.weight(.semibold))
+                .frame(width: 26)
+                .foregroundStyle(Brand.stamp)
             Text(text)
-                .font(.body.weight(.medium))
-                .fontDesign(.rounded)
-                .foregroundStyle(.white)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(Brand.ink)
         }
     }
 
-    private func purchaseButton(package: Package, badge: String?, prominent: Bool) -> some View {
+    private func purchaseButton(package: Package, prominent: Bool) -> some View {
         Button {
             Task { await purchase(package) }
         } label: {
-            VStack(spacing: 2) {
-                // Только реальная локализованная цена — никаких захардкоженных значений (3.1.2)
-                Text("\(periodLabel(package)) · \(package.storeProduct.localizedPriceString)")
-                if let badge {
-                    Text(badge)
-                        .font(.caption)
-                        .fontDesign(.rounded)
-                        .opacity(0.8)
-                }
-            }
+            // Только реальная локализованная цена — без захардкоженных значений (3.1.2)
+            Text("\(periodLabel(package)) · \(package.storeProduct.localizedPriceString)")
         }
         .buttonStyle(
             prominent
-                ? BrandPrimaryButtonStyle(fill: Brand.amber, textColor: Brand.amberInk)
-                : BrandPrimaryButtonStyle(fill: .white.opacity(0.1), textColor: .white)
+                ? InkButtonStyle(fill: Brand.ink, textColor: Brand.ticket)
+                : InkButtonStyle(fill: Brand.ticket, textColor: Brand.ink)
         )
+        .overlay {
+            if !prominent {
+                RoundedRectangle(cornerRadius: 5).strokeBorder(Brand.ink, lineWidth: 1.4)
+            }
+        }
         .disabled(isPurchasing)
-        .overlay { if isPurchasing { ProgressView().tint(.white) } }
+        .overlay { if isPurchasing { ProgressView().tint(prominent ? Brand.ticket : Brand.ink) } }
     }
 
     private func periodLabel(_ package: Package) -> String {
