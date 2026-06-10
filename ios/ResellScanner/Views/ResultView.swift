@@ -28,28 +28,28 @@ struct ResultView: View {
         PlatformFormatter.format(draft, for: platform)
     }
 
+    // Без собственного NavigationStack: из истории экран пушится в существующий стек,
+    // из ScanView оборачивается в NavigationStack на месте показа fullScreenCover.
     var body: some View {
-        NavigationStack {
-            Group {
-                if draft.recognized {
-                    listingBody
-                } else {
-                    notRecognizedBody
-                }
+        Group {
+            if draft.recognized {
+                listingBody
+            } else {
+                notRecognizedBody
             }
-            .navigationTitle(draft.recognized ? "Listing draft" : "Try again")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
+        }
+        .navigationTitle(draft.recognized ? "Listing draft" : "Try again")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Done") { dismiss() }
             }
-            .sheet(isPresented: $showPaywall) { PaywallView() }
-            .onAppear {
-                saveIfNeeded()
-                if isNew, appState.consumeFirstListingPaywallTrigger(isPro: purchases.isPro) {
-                    showPaywall = true
-                }
+        }
+        .sheet(isPresented: $showPaywall) { PaywallView() }
+        .onAppear {
+            saveIfNeeded()
+            if isNew, appState.consumeFirstListingPaywallTrigger(isPro: purchases.isPro) {
+                showPaywall = true
             }
         }
     }

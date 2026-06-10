@@ -69,8 +69,9 @@ enum APIClient {
         case 200:
             return try JSONDecoder().decode(GenerateResponse.self, from: data)
         case 402:
-            let err = try? JSONDecoder().decode([String: String].self, from: data)
-            throw err?["error"] == "daily_cap_reached" ? APIError.dailyCapReached : APIError.freeLimitReached
+            struct ErrorBody: Decodable { let error: String }
+            let err = try? JSONDecoder().decode(ErrorBody.self, from: data)
+            throw err?.error == "daily_cap_reached" ? APIError.dailyCapReached : APIError.freeLimitReached
         case 503:
             throw APIError.modelBusy
         default:

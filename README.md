@@ -7,8 +7,11 @@
 ```
 proxy/   Cloudflare Worker (TypeScript) — единственное место с API-ключом Anthropic
 ios/     SwiftUI-приложение, iOS 17+ (XcodeGen-манифест project.yml)
-docs/    Тест-план (30 наборов фото) и чек-лист сабмита
+site/    Лендинг + Privacy Policy (деплой: npx wrangler pages deploy site)
+docs/    Тест-план, ASO-листинг App Store (docs/aso/), варианты иконки (docs/icons/)
 ```
+
+Юнит-тесты воркера (без реальных вызовов API): `cd proxy && npm test`.
 
 ## Архитектура
 

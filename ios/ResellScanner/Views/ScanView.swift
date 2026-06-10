@@ -49,12 +49,14 @@ struct ScanView: View {
                 Task { await loadPickedPhotos(items) }
             }
             .fullScreenCover(item: $result) { response in
-                ResultView(
-                    draft: response.draft,
-                    photos: photos,
-                    isNew: true,
-                    initialPlatform: defaultPlatform
-                )
+                NavigationStack {
+                    ResultView(
+                        draft: response.draft,
+                        photos: photos,
+                        isNew: true,
+                        initialPlatform: defaultPlatform
+                    )
+                }
                 .onDisappear { photos = []; note = "" }
             }
             .alert("Error", isPresented: .constant(errorMessage != nil)) {
