@@ -30,9 +30,11 @@ enum APIClient {
         note: String?,
         rcUserId: String?
     ) async throws -> GenerateResponse {
-        // Сжимаем один раз, повтор переиспользует готовый payload — бесплатен по UX
+        // Сжимаем один раз, повтор переиспользует готовый payload — бесплатен по UX.
+        // 1280px: на тестовом наборе бирки уверенно читались даже с 896px, а входных
+        // vision-токенов на треть меньше, чем при 1568 — быстрее и дешевле.
         let payloadImages: [[String: String]] = images.prefix(3).compactMap { image in
-            guard let data = image.resizedJPEG(maxDimension: 1568, quality: 0.7) else { return nil }
+            guard let data = image.resizedJPEG(maxDimension: 1280, quality: 0.7) else { return nil }
             return ["data": data.base64EncodedString(), "media_type": "image/jpeg"]
         }
         guard !payloadImages.isEmpty else { throw APIError.server }
