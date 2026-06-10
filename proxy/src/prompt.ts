@@ -59,7 +59,10 @@ export interface UserContext {
 const LANGUAGE_NAMES: Record<string, string> = {
   en: "English", de: "German", fr: "French", es: "Spanish", it: "Italian",
   pl: "Polish", nl: "Dutch", pt: "Portuguese", sv: "Swedish", cs: "Czech",
-  ro: "Romanian", lt: "Lithuanian", uk: "Ukrainian",
+  ro: "Romanian", lt: "Lithuanian", uk: "Ukrainian", ru: "Russian",
+  da: "Danish", fi: "Finnish", no: "Norwegian", nb: "Norwegian", tr: "Turkish",
+  ja: "Japanese", el: "Greek", hu: "Hungarian", sk: "Slovak", hr: "Croatian",
+  bg: "Bulgarian", lv: "Latvian", et: "Estonian",
 };
 
 function languageName(code?: string): string {

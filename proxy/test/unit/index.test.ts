@@ -144,15 +144,26 @@ describe("request validation", () => {
     expect(createMock).not.toHaveBeenCalled();
   });
 
-  it("rejects an invalid language code with 400", async () => {
+  it("silently ignores an invalid language code (no 400 — поле косметическое)", async () => {
     const resp = await worker.fetch(
       makeRequest({
         body: { images: [{ data: "x", media_type: "image/jpeg" }], platform: "ebay", language: "german!" },
       }),
       makeEnv(new MockKV()),
     );
-    expect(resp.status).toBe(400);
-    expect(createMock).not.toHaveBeenCalled();
+    expect(resp.status).toBe(200);
+    const textBlock = createMock.mock.calls[0][0].messages[0].content.at(-1);
+    expect(textBlock.text).not.toContain("german!");
+  });
+
+  it("accepts three-letter ISO codes like 'fil' without rejecting the request", async () => {
+    const resp = await worker.fetch(
+      makeRequest({
+        body: { images: [{ data: "x", media_type: "image/jpeg" }], platform: "ebay", language: "fil" },
+      }),
+      makeEnv(new MockKV()),
+    );
+    expect(resp.status).toBe(200);
   });
 
   it("passes a valid language into the model prompt", async () => {
@@ -166,27 +177,86 @@ describe("request validation", () => {
     const textBlock = createMock.mock.calls[0][0].messages[0].content.at(-1);
     expect(textBlock.text).toContain("German");
   });
+
+  it("returns 502 when the model response has no text block", async () => {
+    createMock.mockResolvedValueOnce({ content: [], usage: { input_tokens: 1, output_tokens: 0 } });
+    const kv = new MockKV();
+    const resp = await worker.fetch(makeRequest(), makeEnv(kv));
+    expect(resp.status).toBe(502);
+    expect(kv.store.has("total:device-12345678")).toBe(false);
+  });
+
+  it("sanitizes the draft end-to-end: URLs and context phones removed from the response", async () => {
+    createMock.mockResolvedValueOnce(
+      modelResponse(JSON.stringify({
+        recognized: true,
+        confidence: "high",
+        title: "Nike Jacket — visit http://spam.example/buy",
+        description: "Great. Call +1 415 555 0172. Style code 555088-101.",
+        brand: "Nike",
+      })),
+    );
+    const resp = await worker.fetch(makeRequest(), makeEnv(new MockKV()));
+    const data = (await resp.json()) as Record<string, any>;
+    expect(data.draft.title).not.toContain("spam.example");
+    expect(data.draft.description).not.toContain("555 0172");
+    // артикул выжил
+    expect(data.draft.description).toContain("555088-101");
+  });
+
+  it("charges exactly to zero on the 5th free listing (200, remaining_free=0)", async () => {
+    const kv = new MockKV();
+    kv.store.set("total:device-12345678", "4");
+    const resp = await worker.fetch(makeRequest(), makeEnv(kv));
+    expect(resp.status).toBe(200);
+    const data = (await resp.json()) as Record<string, any>;
+    expect(data.meta.remaining_free).toBe(0);
+    expect(kv.store.get("total:device-12345678")).toBe("5");
+  });
 });
 
 describe("/v1/event analytics", () => {
-  it("accepts a funnel event and 200s", async () => {
-    const req = new Request("https://worker.test/v1/event", {
+  function eventRequest(body: unknown, headers: Record<string, string> = {}): Request {
+    return new Request("https://worker.test/v1/event", {
       method: "POST",
-      headers: { "content-type": "application/json", "x-app-token": "secret" },
-      body: JSON.stringify({ event: "paywall_shown", trigger: "free_limit" }),
+      headers: {
+        "content-type": "application/json",
+        "x-app-token": "secret",
+        "x-device-id": "device-12345678",
+        ...headers,
+      },
+      body: JSON.stringify(body),
     });
-    const resp = await worker.fetch(req, makeEnv(new MockKV()));
+  }
+
+  it("accepts a funnel event and 200s", async () => {
+    const resp = await worker.fetch(eventRequest({ event: "paywall_shown", trigger: "free_limit" }), makeEnv(new MockKV()));
     expect(resp.status).toBe(200);
   });
 
-  it("rejects an event with a missing/oversized name", async () => {
+  it("rejects an event with a missing name or non-snake_case name", async () => {
+    for (const body of [{ trigger: "x" }, { event: "пэйволл!" }, { event: "x".repeat(41) }]) {
+      const resp = await worker.fetch(eventRequest(body), makeEnv(new MockKV()));
+      expect(resp.status).toBe(400);
+    }
+  });
+
+  it("requires X-Device-ID (анти-спам воронки)", async () => {
     const req = new Request("https://worker.test/v1/event", {
       method: "POST",
       headers: { "content-type": "application/json", "x-app-token": "secret" },
-      body: JSON.stringify({ trigger: "x" }),
+      body: JSON.stringify({ event: "paywall_shown" }),
     });
     const resp = await worker.fetch(req, makeEnv(new MockKV()));
     expect(resp.status).toBe(400);
+  });
+
+  it("survives a giant trigger and unknown platform (caps, no 500)", async () => {
+    const resp = await worker.fetch(
+      eventRequest({ event: "copy_all", trigger: "y".repeat(10_000), platform: "amazon" }),
+      makeEnv(new MockKV()),
+    );
+    expect(resp.status).toBe(200);
   });
 });
 

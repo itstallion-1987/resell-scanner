@@ -37,6 +37,12 @@ struct HistoryView: View {
                             initialPlatform: listing.platform
                         )
                         .toolbar(.hidden, for: .tabBar)
+                    } else {
+                        ContentUnavailableView(
+                            "Listing unavailable",
+                            systemImage: "exclamationmark.triangle",
+                            description: Text("This saved listing couldn't be read.")
+                        )
                     }
                 } label: {
                     row(listing)
@@ -49,11 +55,11 @@ struct HistoryView: View {
                 .listRowSeparator(.hidden)
                 .swipeActions(edge: .leading, allowsFullSwipe: false) {
                     if listing.status != .listed {
-                        Button { listing.status = .listed } label: { Label("Listed", systemImage: "checkmark.circle") }
+                        Button { setStatus(listing, .listed) } label: { Label("Listed", systemImage: "checkmark.circle") }
                             .tint(Brand.emerald)
                     }
                     if listing.status != .sold {
-                        Button { listing.status = .sold } label: { Label("Sold", systemImage: "dollarsign.circle") }
+                        Button { setStatus(listing, .sold) } label: { Label("Sold", systemImage: "dollarsign.circle") }
                             .tint(Brand.amber)
                     }
                 }
@@ -62,6 +68,8 @@ struct HistoryView: View {
                 for index in offsets {
                     modelContext.delete(listings[index])
                 }
+                // Явная фиксация: autosave отложенный, kill сразу после свайпа терял бы изменение
+                try? modelContext.save()
             }
         }
         .listStyle(.plain)
@@ -99,6 +107,11 @@ struct HistoryView: View {
             }
         }
         .padding(.vertical, 4)
+    }
+
+    private func setStatus(_ listing: Listing, _ status: ListingStatus) {
+        listing.status = status
+        try? modelContext.save()
     }
 
     private func statusChip(_ status: ListingStatus) -> some View {

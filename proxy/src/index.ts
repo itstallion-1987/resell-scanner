@@ -22,7 +22,9 @@ const MAX_NOTE_LENGTH = 500;
 
 const ALLOWED_PLATFORMS = new Set(["ebay", "vinted", "poshmark", "depop", "mercari", "generic"]);
 const ALLOWED_MEDIA_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const LANGUAGE_RE = /^[a-z]{2}(-[A-Z]{2})?$/;
+// BCP-47-образный код (включая 3-буквенные "fil", "haw" и сабтеги); язык — поле
+// косметическое, поэтому несоответствие НЕ роняет запрос, а просто игнорируется
+const LANGUAGE_RE = /^[a-zA-Z]{2,3}([-_][a-zA-Z0-9]{2,8})*$/;
 // ~5 МБ на изображение (лимит Anthropic API); base64 длиннее бинарника на ~33%
 const MAX_BASE64_LENGTH = 7_000_000;
 
@@ -46,25 +48,36 @@ function badRequest(message: string): Response {
 }
 
 // Лёгкая событийная аналитика воронки (paywall_shown, copy_all и т.п.) без сторонних SDK.
+// Лимиты Analytics Engine: index <= 96 байт, blobs суммарно <= 5120 байт — валидируем
+// по БАЙТАМ (не UTF-16-символам) и заворачиваем writeDataPoint в try/catch.
+const EVENT_NAME_RE = /^[a-z0-9_]{1,40}$/;
+
 async function handleEvent(request: Request, env: Env): Promise<Response> {
+  const deviceId = request.headers.get("x-device-id");
+  if (!deviceId || deviceId.length < 8 || deviceId.length > 64) {
+    return badRequest("Missing or invalid X-Device-ID header");
+  }
+
   let body: { event?: unknown; platform?: unknown; trigger?: unknown };
   try {
     body = (await request.json()) as typeof body;
   } catch {
     return json({ error: "bad_request" }, 400);
   }
-  if (typeof body.event !== "string" || body.event.length > 40) {
+  if (typeof body.event !== "string" || !EVENT_NAME_RE.test(body.event)) {
     return json({ error: "bad_request" }, 400);
   }
-  env.ANALYTICS?.writeDataPoint({
-    blobs: [
-      "event",
-      body.event,
-      typeof body.platform === "string" ? body.platform : "",
-      typeof body.trigger === "string" ? body.trigger : "",
-    ],
-    indexes: [body.event],
-  });
+  const platform = typeof body.platform === "string" && ALLOWED_PLATFORMS.has(body.platform) ? body.platform : "";
+  const trigger = typeof body.trigger === "string" ? body.trigger.slice(0, 64) : "";
+
+  try {
+    env.ANALYTICS?.writeDataPoint({
+      blobs: ["event", body.event, platform, trigger],
+      indexes: [body.event],
+    });
+  } catch {
+    // телеметрия не должна ронять запрос
+  }
   return json({ ok: true });
 }
 
@@ -119,9 +132,10 @@ export default {
     if (body.note !== undefined && (typeof body.note !== "string" || body.note.length > MAX_NOTE_LENGTH * 4)) {
       return badRequest("note must be a string");
     }
-    if (body.language !== undefined && (typeof body.language !== "string" || !LANGUAGE_RE.test(body.language))) {
-      return badRequest("language must be a locale code like 'de' or 'fr-FR'");
-    }
+    // Невалидный language тихо игнорируем (как platform/currency): поле косметическое,
+    // ронять из-за него основной запрос несоразмерно
+    const language =
+      typeof body.language === "string" && LANGUAGE_RE.test(body.language) ? body.language : undefined;
     const platform = ALLOWED_PLATFORMS.has(body.platform) ? body.platform : "generic";
     const currency = /^[A-Z]{3}$/.test(body.currency ?? "") ? body.currency! : "USD";
 
@@ -168,7 +182,7 @@ export default {
     }));
     content.push({
       type: "text",
-      text: buildUserText({ platform, currency, note: body.note, language: body.language }),
+      text: buildUserText({ platform, currency, note: body.note, language }),
     });
 
     let message: Anthropic.Message;

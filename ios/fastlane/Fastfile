@@ -24,6 +24,12 @@ platform :ios do
 
   desc "Собрать подписанный релиз и залить в TestFlight"
   lane :release do
+    # Незаданный GitHub Secret приходит ПУСТОЙ строкой — ENV.fetch его пропустит.
+    # Валимся явно, чтобы не выпустить .ipa с плейсхолдером-токеном.
+    %w[APP_SHARED_TOKEN APP_IDENTIFIER DEVELOPER_TEAM_ID ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8].each do |name|
+      UI.user_error!("Секрет #{name} пуст или не задан — проверьте GitHub Secrets") if ENV[name].to_s.strip.empty?
+    end
+
     api_key = asc_api_key
     app_id = ENV.fetch("APP_IDENTIFIER")
 

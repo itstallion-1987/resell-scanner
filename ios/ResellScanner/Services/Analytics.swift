@@ -14,6 +14,7 @@ enum Analytics {
         request.timeoutInterval = 10
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(AppConfig.appToken, forHTTPHeaderField: "X-App-Token")
+        request.setValue(DeviceID.current, forHTTPHeaderField: "X-Device-ID")
         request.httpBody = body
 
         Task.detached(priority: .background) {

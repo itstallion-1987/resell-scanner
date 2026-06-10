@@ -5,6 +5,7 @@ enum APIError: LocalizedError, Equatable {
     case freeLimitReached
     case dailyCapReached
     case modelBusy
+    case unauthorized
     case server
     case network
 
@@ -13,13 +14,16 @@ enum APIError: LocalizedError, Equatable {
         case .freeLimitReached: "You've used all free listings. Upgrade to Pro for unlimited listings."
         case .dailyCapReached: "Daily limit reached. Please try again tomorrow."
         case .modelBusy: "The service is busy. Please try again in a moment."
+        case .unauthorized: "App configuration error. Please update the app from the App Store."
         case .server: "Generation failed. Please try again."
         case .network: "No connection. Check your internet and try again."
         }
     }
 
-    /// Транзиентные ошибки, на которых имеет смысл один автоматический повтор
-    var isRetryable: Bool { self == .modelBusy || self == .network }
+    /// Автоповтор безопасен ТОЛЬКО для 503 (воркер отвечает им до старта генерации).
+    /// .network ретраить нельзя: клиентский таймаут/обрыв после доставки запроса означает,
+    /// что генерация на сервере могла завершиться и списаться — повтор удвоил бы её.
+    var isRetryable: Bool { self == .modelBusy }
 }
 
 enum APIClient {
@@ -82,6 +86,10 @@ enum APIClient {
         switch http.statusCode {
         case 200:
             return try JSONDecoder().decode(GenerateResponse.self, from: data)
+        case 401, 403:
+            // Битый/плейсхолдерный appToken — конфигурация, а не сбой сети
+            assertionFailure("Worker rejected the app token — APP_SHARED_TOKEN не подставлен в сборку?")
+            throw APIError.unauthorized
         case 402:
             struct ErrorBody: Decodable { let error: String }
             let err = try? JSONDecoder().decode(ErrorBody.self, from: data)
@@ -96,12 +104,15 @@ enum APIClient {
 
 extension UIImage {
     func resizedJPEG(maxDimension: CGFloat, quality: CGFloat) -> Data? {
-        let longest = max(size.width, size.height)
-        guard longest > maxDimension else { return jpegData(compressionQuality: quality) }
-        let scale = maxDimension / longest
-        let newSize = CGSize(width: size.width * scale, height: size.height * scale)
-        // scale = 1: иначе рендер берёт масштаб дисплея (2-3x) и 1568pt дают ~4700px —
-        // payload раздувается и упирается в лимит Anthropic 5 МБ/фото
+        // Сравниваем ПИКСЕЛИ, не пункты: UIImage со scale 2-3 (скриншоты, ассеты)
+        // в пунктах «маленький», а в пикселях может сильно превышать лимит
+        let pixelWidth = size.width * scale
+        let pixelHeight = size.height * scale
+        let longestPx = max(pixelWidth, pixelHeight)
+        guard longestPx > maxDimension else { return jpegData(compressionQuality: quality) }
+        let k = maxDimension / longestPx
+        // Рендерер с format.scale = 1: размер в пунктах == размеру в пикселях
+        let newSize = CGSize(width: pixelWidth * k, height: pixelHeight * k)
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = 1
         let renderer = UIGraphicsImageRenderer(size: newSize, format: format)

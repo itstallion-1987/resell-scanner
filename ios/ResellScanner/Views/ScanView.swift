@@ -12,6 +12,7 @@ struct ScanView: View {
     @State private var photos: [UIImage] = []
     @State private var pickerItems: [PhotosPickerItem] = []
     @State private var note = ""
+    @State private var showNoteInput = false
     @State private var isGenerating = false
     @State private var errorMessage: String?
     @State private var result: GenerateResponse?
@@ -75,6 +76,15 @@ struct ScanView: View {
             .overlay { if isGenerating { GenerationProgressView() } }
             .task { await camera.requestAccessAndStart() }
             .onDisappear { camera.stop() }
+            // onDisappear НЕ вызывается при показе fullScreenCover (вью остаётся
+            // в иерархии) — гасим камеру явно, пока открыт результат
+            .onChange(of: result?.id) { _, newID in
+                if newID != nil {
+                    camera.stop()
+                } else {
+                    Task { await camera.requestAccessAndStart() }
+                }
+            }
             .onChange(of: pickerItems) { _, items in
                 Task { await loadPickedPhotos(items) }
             }
@@ -100,6 +110,13 @@ struct ScanView: View {
                 Button("OK", role: .cancel) { errorMessage = nil }
             } message: {
                 Text(errorMessage ?? "")
+            }
+            .alert("Note for the listing", isPresented: $showNoteInput) {
+                TextField("e.g. bought last year, worn twice", text: $note)
+                Button("Done") {}
+                Button("Clear", role: .destructive) { note = "" }
+            } message: {
+                Text("Optional details the photos can't show — included in the generated draft.")
             }
         }
     }
@@ -134,18 +151,29 @@ struct ScanView: View {
             }
 
             HStack(spacing: 0) {
-                PhotosPicker(
-                    selection: $pickerItems,
-                    maxSelectionCount: 3 - photos.count,
-                    matching: .images
-                ) {
-                    Image(systemName: "photo.on.rectangle")
-                        .font(.title3)
-                        .frame(width: 52, height: 52)
-                        .background(.white.opacity(0.12), in: Circle())
-                        .foregroundStyle(.white)
+                VStack(spacing: 10) {
+                    Button {
+                        showNoteInput = true
+                    } label: {
+                        Image(systemName: note.isEmpty ? "text.bubble" : "text.bubble.fill")
+                            .font(.callout)
+                            .frame(width: 38, height: 38)
+                            .background(.white.opacity(0.12), in: Circle())
+                            .foregroundStyle(note.isEmpty ? .white : Brand.mint)
+                    }
+                    PhotosPicker(
+                        selection: $pickerItems,
+                        maxSelectionCount: 3 - photos.count,
+                        matching: .images
+                    ) {
+                        Image(systemName: "photo.on.rectangle")
+                            .font(.title3)
+                            .frame(width: 52, height: 52)
+                            .background(.white.opacity(0.12), in: Circle())
+                            .foregroundStyle(.white)
+                    }
+                    .disabled(photos.count >= 3)
                 }
-                .disabled(photos.count >= 3)
                 .frame(maxWidth: .infinity)
 
                 Button {

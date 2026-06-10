@@ -15,8 +15,9 @@ struct ResultView: View {
 
     @State private var platform: Platform
     @State private var showPaywall = false
-    @State private var saved = false
+    @State private var savedListing: Listing?
     @State private var copiedField: String?
+    @State private var copyGeneration = UUID()
 
     init(draft: ListingDraft, photos: [UIImage], isNew: Bool, initialPlatform: Platform) {
         self.draft = draft
@@ -274,6 +275,8 @@ struct ResultView: View {
                 guard newValue != platform else { return }
                 if purchases.isPro {
                     platform = newValue
+                    // История должна открываться в той же платформе, что видел пользователь
+                    savedListing?.platformRaw = newValue.rawValue
                 } else {
                     showPaywall = true // переключатель платформ — Pro
                 }
@@ -300,17 +303,22 @@ struct ResultView: View {
 
     private func flashCopied(_ field: String) {
         copiedField = field
+        // Поколение защищает от гонки: повторный тап в пределах 1.5с не даст
+        // первому таймеру сбросить галочку раньше времени
+        let generation = UUID()
+        copyGeneration = generation
         Task {
             try? await Task.sleep(for: .seconds(1.5))
-            if copiedField == field { copiedField = nil }
+            if copyGeneration == generation { copiedField = nil }
         }
     }
 
     private func saveIfNeeded() {
-        guard isNew, !saved, draft.recognized else { return }
-        saved = true
+        guard isNew, savedListing == nil, draft.recognized else { return }
         let thumbnail = photos.first?.resizedJPEG(maxDimension: 300, quality: 0.6)
-        modelContext.insert(Listing(draft: draft, platform: platform, thumbnail: thumbnail))
+        let listing = Listing(draft: draft, platform: platform, thumbnail: thumbnail)
+        modelContext.insert(listing)
+        savedListing = listing
     }
 
     // MARK: - Not recognized
