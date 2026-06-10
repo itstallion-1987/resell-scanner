@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { LISTING_SCHEMA } from "./schema";
 import { SYSTEM_PROMPT, buildUserText } from "./prompt";
-import { checkLimits, recordUsage } from "./limits";
+import { checkLimits, recordUsage, globalCapReached, recordGlobalUsage } from "./limits";
 import { isProUser } from "./entitlements";
 
 export interface Env {
@@ -12,8 +12,11 @@ export interface Env {
   MODEL: string;
   FREE_TOTAL_LIMIT: string;
   DAILY_CAP: string;
+  GLOBAL_DAILY_CAP?: string;
   DEV_MODE?: string;
 }
+
+const MAX_NOTE_LENGTH = 500;
 
 const ALLOWED_PLATFORMS = new Set(["ebay", "vinted", "poshmark", "depop", "mercari", "generic"]);
 const ALLOWED_MEDIA_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -78,8 +81,17 @@ export default {
         return badRequest(`media_type must be one of: ${[...ALLOWED_MEDIA_TYPES].join(", ")}`);
       }
     }
+    if (body.note !== undefined && (typeof body.note !== "string" || body.note.length > MAX_NOTE_LENGTH * 4)) {
+      return badRequest("note must be a string");
+    }
     const platform = ALLOWED_PLATFORMS.has(body.platform) ? body.platform : "generic";
     const currency = /^[A-Z]{3}$/.test(body.currency ?? "") ? body.currency! : "USD";
+
+    // Глобальный дневной потолок — защита бюджета от ротации device-id (до любой работы)
+    const globalCap = parseInt(env.GLOBAL_DAILY_CAP || "5000", 10);
+    if (await globalCapReached(env.LIMITS, globalCap)) {
+      return json({ error: "service_unavailable", message: "Daily capacity reached, try again later" }, 503);
+    }
 
     // Подписка + лимиты ДО вызова модели
     const isPro = await isProUser(
@@ -97,7 +109,8 @@ export default {
       parseInt(env.DAILY_CAP || "300", 10),
     );
     if (!limits.allowed) {
-      return json({ error: limits.reason, remaining_free: 0, is_pro: isPro }, 402);
+      // is_pro намеренно не возвращаем в ошибке — чтобы не давать оракул для перебора RC-ID
+      return json({ error: limits.reason, remaining_free: 0 }, 402);
     }
 
     // ОДИН vision-вызов на объявление, до 3 фото внутри
@@ -157,8 +170,9 @@ export default {
       return json({ error: "model_error", message: "Non-JSON model response" }, 502);
     }
 
-    // Попытка списывается только при успехе
+    // Попытка списывается только при успехе (и device-счётчик, и глобальный потолок)
     await recordUsage(env.LIMITS, deviceId, isPro);
+    await recordGlobalUsage(env.LIMITS);
     const remaining = limits.remainingFree === -1 ? -1 : limits.remainingFree - 1;
 
     return json({

@@ -86,7 +86,11 @@ extension UIImage {
         guard longest > maxDimension else { return jpegData(compressionQuality: quality) }
         let scale = maxDimension / longest
         let newSize = CGSize(width: size.width * scale, height: size.height * scale)
-        let renderer = UIGraphicsImageRenderer(size: newSize)
+        // scale = 1: иначе рендер берёт масштаб дисплея (2-3x) и 1568pt дают ~4700px —
+        // payload раздувается и упирается в лимит Anthropic 5 МБ/фото
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: newSize, format: format)
         let resized = renderer.image { _ in draw(in: CGRect(origin: .zero, size: newSize)) }
         return resized.jpegData(compressionQuality: quality)
     }

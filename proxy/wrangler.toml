@@ -14,6 +14,9 @@ id = "REPLACE_WITH_KV_NAMESPACE_ID"
 MODEL = "claude-sonnet-4-6"
 FREE_TOTAL_LIMIT = "5"
 DAILY_CAP = "300"
+# Глобальный дневной потолок генераций — предохранитель бюджета Anthropic, не зависит от device-id.
+# Выставить в ~2-3x ожидаемого дневного объёма. 5000 * ~$0.03 = ~$150/день максимум.
+GLOBAL_DAILY_CAP = "5000"
 DEV_MODE = "0"
 
 # Секреты (задать через `wrangler secret put <NAME>`):

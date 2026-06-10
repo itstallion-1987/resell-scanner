@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkLimits, recordUsage } from "../../src/limits";
+import { checkLimits, recordUsage, globalCapReached, recordGlobalUsage } from "../../src/limits";
 import { MockKV, asKV } from "./mock-kv";
 
 const DEVICE = "device-test-0001";
@@ -51,5 +51,29 @@ describe("recordUsage", () => {
     await recordUsage(asKV(kv), DEVICE, true);
     expect(kv.store.has(`total:${DEVICE}`)).toBe(false);
     expect(kv.store.get(`day:${DEVICE}:${today()}`)).toBe("1");
+  });
+
+  it("sets a 48h TTL on the daily counter", async () => {
+    const kv = new MockKV();
+    await recordUsage(asKV(kv), DEVICE, false);
+    expect(kv.ttls.get(`day:${DEVICE}:${today()}`)).toBe(172800);
+    // total — вечный, без TTL
+    expect(kv.ttls.get(`total:${DEVICE}`)).toBeUndefined();
+  });
+});
+
+describe("global daily cap", () => {
+  it("is not reached below the cap and is reached at/above it", async () => {
+    const kv = new MockKV();
+    expect(await globalCapReached(asKV(kv), 5000)).toBe(false);
+    kv.store.set(`global:${today()}`, "5000");
+    expect(await globalCapReached(asKV(kv), 5000)).toBe(true);
+  });
+
+  it("increments the global counter independently of device id", async () => {
+    const kv = new MockKV();
+    await recordGlobalUsage(asKV(kv));
+    await recordGlobalUsage(asKV(kv));
+    expect(kv.store.get(`global:${today()}`)).toBe("2");
   });
 });

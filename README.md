@@ -17,7 +17,7 @@ docs/    Тест-план, ASO-листинг App Store (docs/aso/), вариа
 
 - **Один vision-вызов на объявление** (до 3 фото в одном запросе). Переключение платформы на экране результата — локальное переформатирование (`PlatformFormatter`), без нового вызова.
 - **Модель:** `claude-sonnet-4-6` (задаётся в `proxy/wrangler.toml` → `MODEL`). Выбрана по критерию приёмки «себестоимость ≤ $0.04»: 3 фото ≈ 4.8K входных токенов + ~0.8K выходных ≈ **$0.027** на объявление. Opus 4.8 даёт ~$0.05 — за бюджетом. Параметры вызова: structured outputs (`output_config.format` с JSON-схемой — модель не может ответить не-JSON'ом), `thinking: disabled` + `effort: low` ради латентности ≤ 5 с, системный промпт кэшируется (`cache_control`).
-- **Лимиты:** Free — 5 объявлений суммарно на устройство (счётчик в KV, device-ID хранится в Keychain и переживает переустановку); дневной потолок 300 для всех. Попытка списывается только при успешной генерации.
+- **Лимиты:** Free — 5 объявлений суммарно на устройство, дневной потолок 300 на устройство (счётчики в KV, device-ID в Keychain переживает переустановку). Плюс **глобальный дневной потолок** `GLOBAL_DAILY_CAP` (по умолчанию 5000) — предохранитель бюджета Anthropic, не зависящий от device-ID: при достижении воркер отдаёт 503 ещё до вызова модели. Попытка списывается только при успешной генерации. Device-счётчики на KV — «мягкие» (возможен недосчёт при гонке); жёсткая граница расходов — глобальный потолок + Cloudflare Rate Limiting + spend limit в консоли Anthropic.
 - **Подписка:** RevenueCat, entitlement `pro`. Воркер проверяет статус server-side через RevenueCat REST API (кэш 1 час в KV) — клиентскому флагу не доверяет.
 - **Запреты в системном промпте:** никаких вердиктов подлинности, гарантий продажи/цены, оценки ювелирки/драгметаллов, медицинских заявлений. Состояние — только по видимому. На экране результата — дисклеймер про подлинность.
 
@@ -77,6 +77,15 @@ cd ios && xcodegen generate && open ResellScanner.xcodeproj
 | Paywall: после 1-го объявления / 6-е / переключатель | `AppState.consumeFirstListingPaywallTrigger`, `ScanView.generate`, `ResultView.platformBinding` |
 | Free 5 / Pro $6.99/мес, $39.99/год (якорь — год) | воркер `FREE_TOTAL_LIMIT`, `PaywallView` |
 | История локально (SwiftData) | `Models/Listing.swift`, `HistoryView` (Pro) |
+
+## ⚠️ Открытые блокеры ревью (по итогам коллегии)
+
+Эти пункты ещё НЕ исправлены и блокируют сабмит — починить до публикации:
+1. **Ссылки Privacy Policy + Terms of Use (EULA) на экране paywall** — без них реджект 3.1.2 (ссылок в Settings недостаточно).
+2. **Плейсхолдеры**: `example.com` в Privacy Policy (SettingsView), `YOUR-SUBDOMAIN`/`REPLACE_APP_SHARED_SECRET` в APIClient.swift, фейковый ключ RevenueCat. Прогнать перед сабмитом: grep по `example.com|YOUR-SUBDOMAIN|REPLACE_`.
+3. **App Privacy анкета**: декларировать Photos как *collected — App Functionality, Not linked* (README и docs/aso сейчас противоречат друг другу).
+4. **Cloudflare**: включить Rate Limiting Rule на `/v1/listing` и выставить spend limit в консоли Anthropic (глобальный потолок в коде — backstop, но не замена).
+5. **App Attest (DCAppAttestService)** — стратегически, чтобы `X-Device-ID` не подделывался произвольным UUID.
 
 ## Сабмит — не забыть
 

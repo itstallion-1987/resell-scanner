@@ -8,8 +8,12 @@ final class CameraService: NSObject, ObservableObject {
     @Published var isAuthorized = false
 
     private let output = AVCapturePhotoOutput()
-    private var configured = false
+    // Конфигурация и флаг живут только на sessionQueue, поэтому изоляция не нужна
+    nonisolated(unsafe) private var configured = false
     private var captureContinuation: CheckedContinuation<UIImage?, Never>?
+    // Последовательная очередь: гарантирует порядок configure -> start -> stop,
+    // иначе stop() мог обогнать startRunning() и сессия оставалась включённой
+    private let sessionQueue = DispatchQueue(label: "camera.session")
 
     func requestAccessAndStart() async {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
@@ -21,16 +25,16 @@ final class CameraService: NSObject, ObservableObject {
             isAuthorized = false
         }
         guard isAuthorized else { return }
-        configureIfNeeded()
         let session = session
-        if !session.isRunning {
-            Task.detached { session.startRunning() }
+        sessionQueue.async { [weak self] in
+            self?.configureIfNeeded()
+            if !session.isRunning { session.startRunning() }
         }
     }
 
     func stop() {
         let session = session
-        Task.detached {
+        sessionQueue.async {
             if session.isRunning { session.stopRunning() }
         }
     }
@@ -43,7 +47,7 @@ final class CameraService: NSObject, ObservableObject {
         }
     }
 
-    private func configureIfNeeded() {
+    nonisolated private func configureIfNeeded() {
         guard !configured else { return }
         session.beginConfiguration()
         session.sessionPreset = .photo

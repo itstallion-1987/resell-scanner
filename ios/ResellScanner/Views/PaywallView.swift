@@ -40,7 +40,7 @@ struct PaywallView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(20)
-                    .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 16))
+                    .background(AnyShapeStyle(.quaternary).opacity(0.5), in: RoundedRectangle(cornerRadius: 16))
 
                     VStack(spacing: 12) {
                         // Якорь — годовой тариф
@@ -83,7 +83,10 @@ struct PaywallView: View {
                     }
                 }
             }
-            .alert("Purchase failed", isPresented: .constant(errorMessage != nil)) {
+            .alert("Purchase failed", isPresented: Binding(
+                get: { errorMessage != nil },
+                set: { if !$0 { errorMessage = nil } }
+            )) {
                 Button("OK") { errorMessage = nil }
             } message: {
                 Text(errorMessage ?? "")

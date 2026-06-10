@@ -47,3 +47,21 @@ export async function recordUsage(kv: KVNamespace, deviceId: string, isPro: bool
     await kv.put(totalKey, String(totalCount + 1));
   }
 }
+
+// Глобальный дневной потолок — последний предохранитель бюджета Anthropic, не зависящий
+// от клиентского device-id. На KV это «мягкий» счётчик (возможен недосчёт при гонке),
+// но как грубый стоп от разорения работает. Жёсткая граница — Cloudflare Rate Limiting + spend limit в консоли.
+function globalKey(): string {
+  return `global:${todayKey()}`;
+}
+
+export async function globalCapReached(kv: KVNamespace, cap: number): Promise<boolean> {
+  const count = parseInt((await kv.get(globalKey())) ?? "0", 10);
+  return count >= cap;
+}
+
+export async function recordGlobalUsage(kv: KVNamespace): Promise<void> {
+  const key = globalKey();
+  const count = parseInt((await kv.get(key)) ?? "0", 10);
+  await kv.put(key, String(count + 1), { expirationTtl: 60 * 60 * 48 });
+}

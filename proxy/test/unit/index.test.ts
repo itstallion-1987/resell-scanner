@@ -132,6 +132,17 @@ describe("request validation", () => {
     const textBlock = callArgs.messages[0].content.at(-1);
     expect(textBlock.text).toContain("generic");
   });
+
+  it("rejects a non-string note with 400 instead of crashing", async () => {
+    const resp = await worker.fetch(
+      makeRequest({
+        body: { images: [{ data: "x", media_type: "image/jpeg" }], platform: "ebay", note: 123 },
+      }),
+      makeEnv(new MockKV()),
+    );
+    expect(resp.status).toBe(400);
+    expect(createMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("happy path and limits", () => {
@@ -146,14 +157,29 @@ describe("happy path and limits", () => {
     expect(kv.store.get("total:device-12345678")).toBe("1");
   });
 
-  it("blocks the 6th free listing with 402", async () => {
+  it("blocks the 6th free listing with 402 and does not leak is_pro", async () => {
     const kv = new MockKV();
     kv.store.set("total:device-12345678", "5");
     const resp = await worker.fetch(makeRequest(), makeEnv(kv));
     expect(resp.status).toBe(402);
     const data = (await resp.json()) as Record<string, unknown>;
     expect(data.error).toBe("free_limit_reached");
+    expect("is_pro" in data).toBe(false); // оракул для перебора RC-ID закрыт
     expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 503 when the global daily cap is reached, before any model call", async () => {
+    const kv = new MockKV();
+    kv.store.set(`global:${new Date().toISOString().slice(0, 10)}`, "5000");
+    const resp = await worker.fetch(makeRequest(), makeEnv(kv));
+    expect(resp.status).toBe(503);
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("increments the global counter on a successful generation", async () => {
+    const kv = new MockKV();
+    await worker.fetch(makeRequest(), makeEnv(kv));
+    expect(kv.store.get(`global:${new Date().toISOString().slice(0, 10)}`)).toBe("1");
   });
 
   it("enforces the daily cap with 402", async () => {
