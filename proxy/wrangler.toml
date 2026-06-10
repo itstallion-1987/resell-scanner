@@ -8,6 +8,12 @@ compatibility_flags = ["nodejs_compat"]
 binding = "LIMITS"
 id = "REPLACE_WITH_KV_NAMESPACE_ID"
 
+# Workers Analytics Engine: метрики качества и воронки (бесплатно, без сторонних SDK).
+# Запрос данных — через GraphQL Analytics API аккаунта Cloudflare.
+[[analytics_engine_datasets]]
+binding = "ANALYTICS"
+dataset = "resell_scanner_events"
+
 [vars]
 # claude-sonnet-4-6 укладывается в критерий себестоимости <= $0.04 за объявление
 # (3 фото ~4.8K токенов входа + ~0.8K выхода ~= $0.03). Opus превышает бюджет.

@@ -5,6 +5,7 @@ import UIKit
 struct ResultView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.requestReview) private var requestReview
     @EnvironmentObject private var purchases: PurchaseManager
     @EnvironmentObject private var appState: AppState
 
@@ -156,7 +157,7 @@ struct ResultView: View {
             Spacer()
             Button {
                 UIPasteboard.general.string = value
-                flashCopied(label)
+                onCopied(field: label, event: "copy_field")
             } label: {
                 Image(systemName: copiedField == label ? "checkmark" : "doc.on.doc")
                     .foregroundStyle(copiedField == label ? .green : .accentColor)
@@ -171,7 +172,15 @@ struct ResultView: View {
             return
         }
         UIPasteboard.general.string = PlatformFormatter.copyAllText(draft, platform: platform)
-        flashCopied("ALL")
+        onCopied(field: "ALL", event: "copy_all")
+    }
+
+    private func onCopied(field: String, event: String) {
+        flashCopied(field)
+        Analytics.track(event, platform: platform)
+        // Запрос отзыва в момент полученной ценности (после нескольких копирований)
+        ReviewManager.registerSuccessfulCopy()
+        ReviewManager.maybeRequestReview(requestReview)
     }
 
     private func flashCopied(_ field: String) {
@@ -203,9 +212,9 @@ struct ResultView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button {
-                dismiss()
+                dismiss() // фото сохранены в ScanView — добавит бирку и повторит
             } label: {
-                Text("Retake photos")
+                Text(draft.retryHint != nil ? "Add the photo & retry" : "Retake photos")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding()

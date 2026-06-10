@@ -34,6 +34,9 @@ struct ScanView: View {
                     )
                 }
                 VStack {
+                    if !purchases.isPro, let remaining = appState.remainingFree, remaining >= 0 {
+                        freeBadge("\(remaining) of 5 free left")
+                    }
                     if photos.count == 1 {
                         hintBanner("Now add a photo of the brand/size tag — it boosts accuracy")
                     } else if photos.isEmpty {
@@ -43,6 +46,7 @@ struct ScanView: View {
                     controls
                 }
             }
+            .overlay { if isGenerating { GenerationProgressView() } }
             .task { await camera.requestAccessAndStart() }
             .onDisappear { camera.stop() }
             .onChange(of: pickerItems) { _, items in
@@ -57,13 +61,17 @@ struct ScanView: View {
                         initialPlatform: defaultPlatform
                     )
                 }
-                .onDisappear { photos = []; note = "" }
+                .onDisappear {
+                    // При нераспознавании оставляем фото — пользователь добавит бирку и повторит
+                    if response.draft.recognized { photos = []; note = "" }
+                }
             }
             .alert("Error", isPresented: Binding(
                 get: { errorMessage != nil },
                 set: { if !$0 { errorMessage = nil } }
             )) {
-                Button("OK") { errorMessage = nil }
+                Button("Retry") { Task { await generate() } }
+                Button("OK", role: .cancel) { errorMessage = nil }
             } message: {
                 Text(errorMessage ?? "")
             }
@@ -155,6 +163,19 @@ struct ScanView: View {
             .padding(.top, 12)
     }
 
+    private func freeBadge(_ text: String) -> some View {
+        Button {
+            appState.showPaywall = true
+        } label: {
+            Label(text, systemImage: "sparkles")
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(.ultraThinMaterial, in: Capsule())
+        }
+        .padding(.top, 12)
+    }
+
     private func loadPickedPhotos(_ items: [PhotosPickerItem]) async {
         for item in items {
             if photos.count >= 3 { break }
@@ -167,11 +188,14 @@ struct ScanView: View {
     }
 
     private func generate() async {
+        guard !photos.isEmpty, !isGenerating else { return }
         // Жёсткий триггер paywall: лимит Free исчерпан (по данным сервера)
         if !purchases.isPro, appState.remainingFree == 0 {
+            Analytics.track("limit_reached", platform: defaultPlatform)
             appState.showPaywall = true
             return
         }
+        errorMessage = nil
         isGenerating = true
         defer { isGenerating = false }
         do {
@@ -186,6 +210,7 @@ struct ScanView: View {
             result = response
         } catch APIError.freeLimitReached {
             appState.remainingFree = 0
+            Analytics.track("limit_reached", platform: defaultPlatform)
             appState.showPaywall = true
         } catch {
             errorMessage = error.localizedDescription

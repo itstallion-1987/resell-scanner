@@ -3,12 +3,14 @@ import { LISTING_SCHEMA } from "./schema";
 import { SYSTEM_PROMPT, buildUserText } from "./prompt";
 import { checkLimits, recordUsage, globalCapReached, recordGlobalUsage } from "./limits";
 import { isProUser } from "./entitlements";
+import { sanitizeDraft } from "./sanitize";
 
 export interface Env {
   ANTHROPIC_API_KEY: string;
   REVENUECAT_SECRET?: string;
   APP_SHARED_SECRET?: string;
   LIMITS: KVNamespace;
+  ANALYTICS?: AnalyticsEngineDataset; // опционально: Workers Analytics Engine
   MODEL: string;
   FREE_TOTAL_LIMIT: string;
   DAILY_CAP: string;
@@ -20,6 +22,7 @@ const MAX_NOTE_LENGTH = 500;
 
 const ALLOWED_PLATFORMS = new Set(["ebay", "vinted", "poshmark", "depop", "mercari", "generic"]);
 const ALLOWED_MEDIA_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const LANGUAGE_RE = /^[a-z]{2}(-[A-Z]{2})?$/;
 // ~5 МБ на изображение (лимит Anthropic API); base64 длиннее бинарника на ~33%
 const MAX_BASE64_LENGTH = 7_000_000;
 
@@ -28,6 +31,7 @@ interface ListingRequest {
   platform: string;
   currency?: string;
   note?: string;
+  language?: string;
 }
 
 function json(body: unknown, status = 200): Response {
@@ -41,12 +45,43 @@ function badRequest(message: string): Response {
   return json({ error: "bad_request", message }, 400);
 }
 
+// Лёгкая событийная аналитика воронки (paywall_shown, copy_all и т.п.) без сторонних SDK.
+async function handleEvent(request: Request, env: Env): Promise<Response> {
+  let body: { event?: unknown; platform?: unknown; trigger?: unknown };
+  try {
+    body = (await request.json()) as typeof body;
+  } catch {
+    return json({ error: "bad_request" }, 400);
+  }
+  if (typeof body.event !== "string" || body.event.length > 40) {
+    return json({ error: "bad_request" }, 400);
+  }
+  env.ANALYTICS?.writeDataPoint({
+    blobs: [
+      "event",
+      body.event,
+      typeof body.platform === "string" ? body.platform : "",
+      typeof body.trigger === "string" ? body.trigger : "",
+    ],
+    indexes: [body.event],
+  });
+  return json({ ok: true });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    const t0 = Date.now();
 
     if (url.pathname === "/health") {
       return json({ ok: true });
+    }
+
+    if (url.pathname === "/v1/event" && request.method === "POST") {
+      if (env.APP_SHARED_SECRET && request.headers.get("x-app-token") !== env.APP_SHARED_SECRET) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      return handleEvent(request, env);
     }
 
     if (url.pathname !== "/v1/listing" || request.method !== "POST") {
@@ -83,6 +118,9 @@ export default {
     }
     if (body.note !== undefined && (typeof body.note !== "string" || body.note.length > MAX_NOTE_LENGTH * 4)) {
       return badRequest("note must be a string");
+    }
+    if (body.language !== undefined && (typeof body.language !== "string" || !LANGUAGE_RE.test(body.language))) {
+      return badRequest("language must be a locale code like 'de' or 'fr-FR'");
     }
     const platform = ALLOWED_PLATFORMS.has(body.platform) ? body.platform : "generic";
     const currency = /^[A-Z]{3}$/.test(body.currency ?? "") ? body.currency! : "USD";
@@ -128,7 +166,10 @@ export default {
         data: img.data,
       },
     }));
-    content.push({ type: "text", text: buildUserText({ platform, currency, note: body.note }) });
+    content.push({
+      type: "text",
+      text: buildUserText({ platform, currency, note: body.note, language: body.language }),
+    });
 
     let message: Anthropic.Message;
     try {
@@ -170,13 +211,38 @@ export default {
       return json({ error: "model_error", message: "Non-JSON model response" }, 502);
     }
 
-    // Попытка списывается только при успехе (и device-счётчик, и глобальный потолок)
-    await recordUsage(env.LIMITS, deviceId, isPro);
+    const d = draft as Record<string, unknown>;
+    const recognized = d?.recognized === true;
+
+    // Чистим поля от ссылок/контактов, проникших через note или текст на фото
+    const cleaned = sanitizeDraft(draft);
+
+    // Free-попытка списывается только при удачном распознавании; глобальный потолок — всегда
+    await recordUsage(env.LIMITS, deviceId, isPro, recognized);
     await recordGlobalUsage(env.LIMITS);
-    const remaining = limits.remainingFree === -1 ? -1 : limits.remainingFree - 1;
+    const charged = !isPro && recognized;
+    const remaining = limits.remainingFree === -1 ? -1 : Math.max(0, limits.remainingFree - (charged ? 1 : 0));
+
+    env.ANALYTICS?.writeDataPoint({
+      blobs: [
+        "listing",
+        platform,
+        recognized ? "1" : "0",
+        typeof d?.confidence === "string" ? (d.confidence as string) : "",
+        d?.brand ? "1" : "0",
+        isPro ? "1" : "0",
+      ],
+      doubles: [
+        Date.now() - t0,
+        message.usage.input_tokens,
+        message.usage.output_tokens,
+        body.images.length,
+      ],
+      indexes: [platform],
+    });
 
     return json({
-      draft,
+      draft: cleaned,
       meta: {
         is_pro: isPro,
         remaining_free: remaining,

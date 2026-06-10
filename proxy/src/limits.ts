@@ -35,13 +35,20 @@ export async function checkLimits(
   return { allowed: true, remainingFree: freeTotalLimit - totalCount };
 }
 
-// Инкремент после успешной генерации (не списываем попытку при ошибке модели)
-export async function recordUsage(kv: KVNamespace, deviceId: string, isPro: boolean): Promise<void> {
+// Инкремент после успешной генерации (не списываем попытку при ошибке модели).
+// chargeTotal=false при recognized:false — неудачное распознавание не должно жечь
+// бесплатный лимит; дневной счётчик всё равно растёт (защита от абьюза).
+export async function recordUsage(
+  kv: KVNamespace,
+  deviceId: string,
+  isPro: boolean,
+  chargeTotal = true,
+): Promise<void> {
   const dayKey = `day:${deviceId}:${todayKey()}`;
   const dayCount = parseInt((await kv.get(dayKey)) ?? "0", 10);
   await kv.put(dayKey, String(dayCount + 1), { expirationTtl: 60 * 60 * 48 });
 
-  if (!isPro) {
+  if (!isPro && chargeTotal) {
     const totalKey = `total:${deviceId}`;
     const totalCount = parseInt((await kv.get(totalKey)) ?? "0", 10);
     await kv.put(totalKey, String(totalCount + 1));

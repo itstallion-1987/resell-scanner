@@ -1,7 +1,7 @@
 import Foundation
 import UIKit
 
-enum APIError: LocalizedError {
+enum APIError: LocalizedError, Equatable {
     case freeLimitReached
     case dailyCapReached
     case modelBusy
@@ -17,13 +17,12 @@ enum APIError: LocalizedError {
         case .network: "No connection. Check your internet and try again."
         }
     }
+
+    /// Транзиентные ошибки, на которых имеет смысл один автоматический повтор
+    var isRetryable: Bool { self == .modelBusy || self == .network }
 }
 
 enum APIClient {
-    // TODO: заменить на URL задеплоенного воркера и общий секрет (APP_SHARED_SECRET)
-    static let baseURL = URL(string: "https://resell-scanner-proxy.YOUR-SUBDOMAIN.workers.dev")!
-    static let appToken = "REPLACE_APP_SHARED_SECRET"
-
     static func generateListing(
         images: [UIImage],
         platform: Platform,
@@ -31,7 +30,7 @@ enum APIClient {
         note: String?,
         rcUserId: String?
     ) async throws -> GenerateResponse {
-        // Ужимаем фото до отправки: 3 кадра должны улетать по LTE за секунды
+        // Сжимаем один раз, повтор переиспользует готовый payload — бесплатен по UX
         let payloadImages: [[String: String]] = images.prefix(3).compactMap { image in
             guard let data = image.resizedJPEG(maxDimension: 1568, quality: 0.7) else { return nil }
             return ["data": data.base64EncodedString(), "media_type": "image/jpeg"]
@@ -44,17 +43,30 @@ enum APIClient {
             "currency": currency,
         ]
         if let note, !note.isEmpty { body["note"] = note }
+        if let language = AppConfig.deviceLanguage { body["language"] = language }
 
-        var request = URLRequest(url: baseURL.appendingPathComponent("v1/listing"))
+        let payload = try JSONSerialization.data(withJSONObject: body)
+
+        do {
+            return try await perform(payload: payload, rcUserId: rcUserId)
+        } catch let error as APIError where error.isRetryable {
+            // Один повтор с бэкоффом — спасает конвейер на нестабильном LTE
+            try? await Task.sleep(for: .seconds(1.5))
+            return try await perform(payload: payload, rcUserId: rcUserId)
+        }
+    }
+
+    private static func perform(payload: Data, rcUserId: String?) async throws -> GenerateResponse {
+        var request = URLRequest(url: AppConfig.workerBaseURL.appendingPathComponent("v1/listing"))
         request.httpMethod = "POST"
         request.timeoutInterval = 60
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(appToken, forHTTPHeaderField: "X-App-Token")
+        request.setValue(AppConfig.appToken, forHTTPHeaderField: "X-App-Token")
         request.setValue(DeviceID.current, forHTTPHeaderField: "X-Device-ID")
         if let rcUserId {
             request.setValue(rcUserId, forHTTPHeaderField: "X-RC-User-ID")
         }
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        request.httpBody = payload
 
         let data: Data
         let response: URLResponse

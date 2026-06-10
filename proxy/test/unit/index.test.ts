@@ -143,6 +143,51 @@ describe("request validation", () => {
     expect(resp.status).toBe(400);
     expect(createMock).not.toHaveBeenCalled();
   });
+
+  it("rejects an invalid language code with 400", async () => {
+    const resp = await worker.fetch(
+      makeRequest({
+        body: { images: [{ data: "x", media_type: "image/jpeg" }], platform: "ebay", language: "german!" },
+      }),
+      makeEnv(new MockKV()),
+    );
+    expect(resp.status).toBe(400);
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("passes a valid language into the model prompt", async () => {
+    const resp = await worker.fetch(
+      makeRequest({
+        body: { images: [{ data: "x", media_type: "image/jpeg" }], platform: "vinted", language: "de" },
+      }),
+      makeEnv(new MockKV()),
+    );
+    expect(resp.status).toBe(200);
+    const textBlock = createMock.mock.calls[0][0].messages[0].content.at(-1);
+    expect(textBlock.text).toContain("German");
+  });
+});
+
+describe("/v1/event analytics", () => {
+  it("accepts a funnel event and 200s", async () => {
+    const req = new Request("https://worker.test/v1/event", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-app-token": "secret" },
+      body: JSON.stringify({ event: "paywall_shown", trigger: "free_limit" }),
+    });
+    const resp = await worker.fetch(req, makeEnv(new MockKV()));
+    expect(resp.status).toBe(200);
+  });
+
+  it("rejects an event with a missing/oversized name", async () => {
+    const req = new Request("https://worker.test/v1/event", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-app-token": "secret" },
+      body: JSON.stringify({ trigger: "x" }),
+    });
+    const resp = await worker.fetch(req, makeEnv(new MockKV()));
+    expect(resp.status).toBe(400);
+  });
 });
 
 describe("happy path and limits", () => {
@@ -179,6 +224,20 @@ describe("happy path and limits", () => {
   it("increments the global counter on a successful generation", async () => {
     const kv = new MockKV();
     await worker.fetch(makeRequest(), makeEnv(kv));
+    expect(kv.store.get(`global:${new Date().toISOString().slice(0, 10)}`)).toBe("1");
+  });
+
+  it("does NOT charge a free listing when the item is not recognized", async () => {
+    createMock.mockResolvedValueOnce(
+      modelResponse(JSON.stringify({ recognized: false, confidence: "low", title: "", retry_hint: "photograph the tag" })),
+    );
+    const kv = new MockKV();
+    const resp = await worker.fetch(makeRequest(), makeEnv(kv));
+    expect(resp.status).toBe(200);
+    const data = (await resp.json()) as Record<string, any>;
+    // Free-попытка не списана, но day и global выросли (анти-абьюз + бюджет)
+    expect(kv.store.has("total:device-12345678")).toBe(false);
+    expect(data.meta.remaining_free).toBe(5);
     expect(kv.store.get(`global:${new Date().toISOString().slice(0, 10)}`)).toBe("1");
   });
 

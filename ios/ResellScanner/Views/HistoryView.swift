@@ -42,6 +42,16 @@ struct HistoryView: View {
                 } label: {
                     row(listing)
                 }
+                .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                    if listing.status != .listed {
+                        Button { listing.status = .listed } label: { Label("Listed", systemImage: "checkmark.circle") }
+                            .tint(.blue)
+                    }
+                    if listing.status != .sold {
+                        Button { listing.status = .sold } label: { Label("Sold", systemImage: "dollarsign.circle") }
+                            .tint(.green)
+                    }
+                }
             }
             .onDelete { offsets in
                 for index in offsets {
@@ -65,15 +75,32 @@ struct HistoryView: View {
                     .frame(width: 48, height: 48)
                     .overlay(Image(systemName: "tag").foregroundStyle(.secondary))
             }
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(listing.title)
                     .font(.subheadline.weight(.medium))
                     .lineLimit(2)
-                Text("\(listing.platform.displayName) · \(listing.createdAt.formatted(date: .abbreviated, time: .shortened))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    statusChip(listing.status)
+                    Text("\(listing.platform.displayName) · \(listing.createdAt.formatted(date: .abbreviated, time: .shortened))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
+    }
+
+    private func statusChip(_ status: ListingStatus) -> some View {
+        let color: Color = switch status {
+        case .draft: .secondary
+        case .listed: .blue
+        case .sold: .green
+        }
+        return Text(status.label.uppercased())
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(color)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(color.opacity(0.15), in: Capsule())
     }
 
     private var lockedState: some View {

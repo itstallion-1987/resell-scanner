@@ -42,21 +42,22 @@ FREE TO TRY
 Your first 5 listings are free. Resell Scanner Pro unlocks unlimited listings, full history, the platform switcher and one-tap "copy all" — $6.99/month or $39.99/year.
 
 A note on accuracy: descriptions are generated from your photos. Always verify the authenticity of branded items yourself before listing — the app never makes authenticity claims.
+
+Terms of Use (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
 ```
+
+> Строку Terms of Use в конце описания оставить обязательно — при стандартной Apple EULA ссылка нужна в метаданных (3.1.2). Если загрузите свою EULA в App Store Connect — замените ссылку на неё.
 
 ## Keywords (≤100 символов)
 
-Вариант A — безопасный (98):
+**Использовать вариант A** (без товарных знаков). Вариант B с названиями платформ — нарушение 2.3.7 и риск жалоб eBay по 5.2.1 (снятие уже опубликованного приложения); до отдельной юридической консультации НЕ использовать.
+
+Вариант A (98):
 ```
 resell,reseller,flip,flipping,thrift,thrifting,listing,maker,generator,secondhand,seller,declutter
 ```
 
-Вариант B — с платформами (99, частая практика, но формально серая зона 2.3.7 — на своё усмотрение):
-```
-resell,flip,thrift,listing,generator,crosslist,ebay,vinted,poshmark,depop,mercari,seller,secondhand
-```
-
-`ai` и `listings` уже в Name — Apple индексирует Name+Subtitle+Keywords вместе, не дублируем.
+`ai` и `listings` уже в Name — Apple индексирует Name+Subtitle+Keywords вместе, не дублируем. Названия маркетплейсов — только в Description как factual interoperability.
 
 ## Категории
 
@@ -79,9 +80,11 @@ Primary: **Shopping** · Secondary: **Business**
 
 | Тип данных | Собирается? | Назначение | Linked to user | Tracking |
 |---|---|---|---|---|
-| Photos | **Нет** (передаются для обработки, не хранятся после ответа — под определение Apple «collected» не попадает, если воркер не логирует) | — | — | — |
+| Photos | **Да** — Photos or Videos | App Functionality (фото уходят на сервер обработки → Anthropic API) | Not linked | Нет |
 | Device ID (анонимный UUID) | Да | App Functionality (лимиты) | Not linked | Нет |
 | Purchase History (RevenueCat) | Да | App Functionality | Not linked | Нет |
+
+> Photos декларируем как *collected*: фото покидают устройство и проходят через сторонний API (Anthropic), который может временно их удерживать. Позиция «не собираются» юридически шаткая → реджект 5.1.2. Текст privacy policy («processed transiently, not stored on our servers») этому не противоречит.
 
 В privacy policy явно сказано: фото уходят на сервер обработки и не сохраняются.
 

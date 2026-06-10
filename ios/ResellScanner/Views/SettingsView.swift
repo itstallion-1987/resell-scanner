@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct SettingsView: View {
     @EnvironmentObject private var purchases: PurchaseManager
@@ -6,6 +7,7 @@ struct SettingsView: View {
 
     @AppStorage("defaultPlatform") private var defaultPlatformRaw = Platform.ebay.rawValue
     @AppStorage("currency") private var currency = "USD"
+    @State private var copiedDeviceID = false
 
     private static let currencies = ["USD", "EUR", "GBP", "CAD", "AUD", "PLN"]
 
@@ -54,9 +56,26 @@ struct SettingsView: View {
                         Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
                             .foregroundStyle(.secondary)
                     }
-                    // TODO: заменить ссылки перед сабмитом
-                    Link("Privacy Policy", destination: URL(string: "https://example.com/privacy")!)
-                    Link("Terms of Use", destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
+                    Link("Privacy Policy", destination: AppConfig.privacyPolicyURL)
+                    Link("Terms of Use", destination: AppConfig.termsOfUseURL)
+                }
+
+                Section {
+                    // Идентификатор устройства — для запроса на удаление данных (обещано в Privacy Policy)
+                    Button {
+                        UIPasteboard.general.string = DeviceID.current
+                        copiedDeviceID = true
+                    } label: {
+                        HStack {
+                            Text("Device ID")
+                            Spacer()
+                            Text(copiedDeviceID ? "Copied!" : String(DeviceID.current.prefix(8)) + "…")
+                                .foregroundStyle(.secondary)
+                                .font(.callout.monospaced())
+                        }
+                    }
+                } footer: {
+                    Text("Anonymous ID used only to enforce free-tier limits. Tap to copy if you request data deletion.")
                 }
             }
             .navigationTitle("Settings")
