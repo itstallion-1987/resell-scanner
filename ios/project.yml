@@ -35,3 +35,14 @@ targets:
         NSCameraUsageDescription: The camera is used to photograph items you want to list for sale.
         NSPhotoLibraryUsageDescription: Pick existing photos of your item to create a listing.
         ITSAppUsesNonExemptEncryption: false
+# Явная shared-схема — нужна для сборки через xcodebuild -scheme в CI
+# (XcodeGen не создаёт схемы без этого блока).
+schemes:
+  ResellScanner:
+    build:
+      targets:
+        ResellScanner: all
+    run:
+      config: Debug
+    archive:
+      config: Release
