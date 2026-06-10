@@ -1,0 +1,22 @@
+name = "resell-scanner-proxy"
+main = "src/index.ts"
+compatibility_date = "2026-05-01"
+compatibility_flags = ["nodejs_compat"]
+
+# KV: счётчики лимитов устройств + кэш статуса подписки
+[[kv_namespaces]]
+binding = "LIMITS"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+[vars]
+# claude-sonnet-4-6 укладывается в критерий себестоимости <= $0.04 за объявление
+# (3 фото ~4.8K токенов входа + ~0.8K выхода ~= $0.03). Opus превышает бюджет.
+MODEL = "claude-sonnet-4-6"
+FREE_TOTAL_LIMIT = "5"
+DAILY_CAP = "300"
+DEV_MODE = "0"
+
+# Секреты (задать через `wrangler secret put <NAME>`):
+#   ANTHROPIC_API_KEY   - ключ Anthropic API (только здесь, никогда в приложении)
+#   REVENUECAT_SECRET   - секретный ключ RevenueCat (проверка подписки server-side)
+#   APP_SHARED_SECRET   - общий токен приложения (минимальная защита от чужого трафика)

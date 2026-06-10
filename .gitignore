@@ -1,0 +1,18 @@
+# Node / Cloudflare
+node_modules/
+dist/
+.wrangler/
+.dev.vars
+
+# Тестовые наборы фото и результаты прогонов — не для репозитория
+proxy/test/sets/
+proxy/test/results.json
+
+# Xcode (проект генерируется XcodeGen'ом)
+*.xcodeproj/
+xcuserdata/
+DerivedData/
+
+# OS
+.DS_Store
+Thumbs.db
