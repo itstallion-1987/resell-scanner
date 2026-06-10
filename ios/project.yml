@@ -26,6 +26,9 @@ targets:
         SWIFT_VERSION: "5.0"
         GENERATE_INFOPLIST_FILE: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Токен воркера подставляется при релизной сборке (xcodebuild ... APP_SHARED_TOKEN=...
+        # или через gitignored Secrets.xcconfig). По умолчанию пусто -> код берёт плейсхолдер.
+        APP_SHARED_TOKEN: ""
     info:
       path: ResellScanner/Info.plist
       properties:
@@ -35,6 +38,7 @@ targets:
         NSCameraUsageDescription: The camera is used to photograph items you want to list for sale.
         NSPhotoLibraryUsageDescription: Pick existing photos of your item to create a listing.
         ITSAppUsesNonExemptEncryption: false
+        APP_SHARED_TOKEN: $(APP_SHARED_TOKEN)
 # Явная shared-схема — нужна для сборки через xcodebuild -scheme в CI
 # (XcodeGen не создаёт схемы без этого блока).
 schemes:

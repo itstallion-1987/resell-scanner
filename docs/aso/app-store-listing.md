@@ -76,6 +76,10 @@ Primary: **Shopping** · Secondary: **Business**
 
 Скриншот 4 обязателен — клин против лёгких конкурентов, покрывающих только одежду.
 
+## Privacy Policy URL (обязательное поле в App Store Connect)
+
+`https://resell-scanner-site.pages.dev/privacy` — задеплоено на Cloudflare Pages, живое.
+
 ## App Privacy (анкета в App Store Connect)
 
 | Тип данных | Собирается? | Назначение | Linked to user | Tracking |

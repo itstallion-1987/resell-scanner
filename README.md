@@ -88,13 +88,15 @@ cd ios && xcodegen generate && open ResellScanner.xcodeproj
 
 ## ⚠️ Перед сабмитом — обязательные действия
 
-Исправлено в коде по итогам коллегии: ссылки Privacy+EULA на paywall, цены только из RevenueCat (без захардкоженных), анкета Photos в docs/aso, Device ID в Settings, ссылки вынесены в `AppConfig.swift`, keywords-вариант A зафиксирован. Осталось то, что зависит от ваших аккаунтов/инфраструктуры:
+Уже сделано: воркер задеплоен (`resell-scanner-proxy.sane4ek07.workers.dev`), сайт + Privacy Policy задеплоены на Cloudflare Pages (`https://resell-scanner-site.pages.dev/privacy`) и вписаны в `AppConfig.swift`; `appToken` вынесен из исходника в build-настройку `APP_SHARED_TOKEN` (gitignored, не светится в публичном репо); ссылки Privacy+EULA на paywall, цены только из RevenueCat, анкета Photos, Device ID в Settings, keywords-вариант A — готовы. Осталось то, что зависит от ваших аккаунтов:
 
-1. **Заполнить плейсхолдеры** в `ios/ResellScanner/Services/AppConfig.swift` (URL воркера, `appToken`, домен Privacy Policy), `PurchaseManager.swift` (публичный ключ RevenueCat), `project.yml` (`bundleIdPrefix`). Pre-submit чек: `grep -rn "YOUR-SUBDOMAIN\|REPLACE_\|YOUR-DOMAIN\|example.com" ios/`.
-2. **Задеплоить `site/`** (Cloudflare Pages) и вписать его URL в `AppConfig.privacyPolicyURL`.
-3. **Cloudflare**: включить Rate Limiting Rule на `/v1/listing` (в дашборде, без релиза приложения) и **spend limit** в консоли Anthropic — глобальный потолок в коде это backstop, а не замена.
-4. **App Privacy** в App Store Connect заполнить по таблице из `docs/aso/app-store-listing.md` (Photos = collected, App Functionality, Not linked).
-5. **App Attest (DCAppAttestService)** — стратегически, чтобы `X-Device-ID` нельзя было подделать произвольным UUID (см. бэклог безопасности ниже).
+1. **Apple Developer Program** ($99/год) — корневой блокер: без него нет App ID, сертификатов и записи в App Store Connect.
+2. **`bundleIdPrefix`** в `ios/project.yml` (сейчас `com.example`) — заменить на реальный под вашим Team ID.
+3. **Публичный ключ RevenueCat** в `PurchaseManager.swift` (это *public* SDK-ключ — его безопасно встраивать в клиент) + создать продукты подписки в App Store Connect и offering в RevenueCat (`$rc_monthly` $6.99, `$rc_annual` $39.99, entitlement `pro`).
+4. **`APP_SHARED_TOKEN`** подставить при релизной сборке (значение в `secrets.local.txt`): `xcodebuild ... APP_SHARED_TOKEN=<секрет>` или через gitignored `Secrets.xcconfig`.
+5. **Подпись и загрузка билда** — нужен Mac или CI с App Store Connect API key (fastlane/Transporter); текущий CI собирает без подписи.
+6. **Скриншоты** под 6.7" и заполнить App Privacy + метаданные в App Store Connect (тексты готовы в `docs/aso/`).
+7. **Cloudflare Rate Limiting** на `/v1/listing` + **spend limit** в консоли Anthropic — до публичного трафика.
 
 ## Бэклог безопасности (не блокеры релиза, но запланировать)
 
