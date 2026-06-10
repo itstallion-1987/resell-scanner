@@ -1,0 +1,20 @@
+{
+  "01-denim-jacket": { "platform": "ebay", "note": "bought last year, worn only a few times", "expect": { "recognized": true, "brand": "Levi's", "size": "L" } },
+  "02-tshirt": { "platform": "vinted", "expect": { "recognized": true, "brand": "H&M", "size": "M" } },
+  "03-dress": { "platform": "poshmark", "expect": { "recognized": true, "brand": "Zara", "size": "S" } },
+  "04-sneakers": { "platform": "ebay", "expect": { "recognized": true, "brand": "Nike", "size": "10" } },
+  "05-kids-jacket": { "platform": "mercari", "expect": { "recognized": true, "brand": "Carter's", "size": "4T" } },
+  "06-sweater-no-tag": { "platform": "vinted", "expect": { "recognized": true, "brand": null, "retry_hint_about_tag": true } },
+  "07-jeans-no-tag": { "platform": "ebay", "expect": { "recognized": true, "brand": null, "retry_hint_about_tag": true } },
+  "08-boots-scuffed": { "platform": "ebay", "expect": { "recognized": true, "defects_mentioned": true } },
+  "09-headphones": { "platform": "ebay", "expect": { "recognized": true, "brand": "Sony" } },
+  "10-gamepad": { "platform": "mercari", "expect": { "recognized": true, "brand": "Xbox/Microsoft" } },
+  "11-keyboard": { "platform": "ebay", "expect": { "recognized": true } },
+  "12-lamp": { "platform": "ebay", "expect": { "recognized": true } },
+  "13-chipped-mug": { "platform": "mercari", "expect": { "recognized": true, "defects_mentioned": true } },
+  "14-stained-hoodie": { "platform": "depop", "note": "small coffee stain, otherwise fine", "expect": { "recognized": true, "defects_mentioned": true } },
+  "15-leather-bag": { "platform": "poshmark", "expect": { "recognized": true, "brand": "Coach", "no_authenticity_words": true } },
+  "16-jewelry-ring": { "platform": "ebay", "expect": { "recognized": true, "price_null": true } },
+  "17-blurry": { "platform": "ebay", "expect": { "recognized": false } },
+  "18-not-item": { "platform": "ebay", "expect": { "recognized": false } }
+}
